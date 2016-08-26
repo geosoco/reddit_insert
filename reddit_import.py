@@ -7,6 +7,7 @@ import argparse
 import psycopg2
 import getpass
 import datetime
+import bz2
 import ujson as json
 from psycopg2.extras import Json
 from itertools import islice
@@ -91,12 +92,20 @@ psycopg2.extras.register_default_json(loads=lambda x: x)
 status_updater = StatusUpdater()
 status_updater.total_files = 1
 
-with open(args.filename, "r") as infile:
+if args.filename.endswith(".bz2"):
+    print "detected bz2 file..."
+    infile = bz2.BZ2File(args.filename, "r", 1024*1024*4)
+    file_length = 0
+else:
+    infile = open(args.filename, "r")
 
     # get file length
     infile.seek(0, os.SEEK_END)
     file_length = infile.tell()
     infile.seek(0, os.SEEK_SET)
+
+#with open(args.filename, "r") as infile:
+try:
 
 
     # update status
@@ -138,14 +147,19 @@ with open(args.filename, "r") as infile:
 
         
         # update status updater
-        status_updater.current_val = os.lseek(
-            infile.fileno(), 0, os.SEEK_CUR)
+        if file_length > 0:
+            status_updater.current_val = os.lseek(
+                infile.fileno(), 0, os.SEEK_CUR)
         status_updater.update()
 
 
+finally:
+    # make sure to close the file
+    infile.close()
+
 # commit the data
 conn.commit()
-
-
+status_updater.update(force=True)
+print "Completed successfully!"
 
             
