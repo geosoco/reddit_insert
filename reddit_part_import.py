@@ -64,7 +64,7 @@ def get_utctimestamp(dt):
 def create_table(cursor, table, parent, min_date, max_date):
     stmt = "create table if not exists %s (CHECK( created_utc >= %d and created_utc < %d)) INHERITS (%s)" % (
         table,
-        min_date, max_date,
+        get_utctimestamp(min_date), get_utctimestamp(max_date),
         parent)
 
     cursor.execute(stmt)
