@@ -33,7 +33,7 @@ def create_insert_tuple(line, live_id):
 
         t = (
             id_int,
-            obj["author"],
+            obj.get("author", None),
             timestamp,
             line)
         if live_id is not None:
@@ -145,7 +145,7 @@ tablename = generate_tablename(args.table, table_dt)
 
 if args.filename.endswith(".bz2"):
     print "detected bz2 file..."
-    infile = bz2.BZ2File(args.filename, "r", 1024*1024*4)
+    infile = bz2.BZ2File(args.filename, "r", 1024*1024*64)
     file_length = 0
 else:
     infile = open(args.filename, "r")
