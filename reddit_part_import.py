@@ -28,13 +28,13 @@ def create_insert_tuple(line, live_id):
         obj = obj["data"]
     try:
         timestamp = int(obj["created_utc"])
-        #dt = datetime.utcfromtimestamp(timestamp)
+        dt = datetime.utcfromtimestamp(timestamp)
         id_int = int(obj["id"], 36)
 
         t = (
             id_int,
             obj.get("author", None),
-            timestamp,
+            dt,
             line)
         if live_id is not None:
             t += (live_id,)
@@ -50,6 +50,8 @@ def create_insert_tuple(line, live_id):
         raise e
 
 
+
+
 def generate_tablename(tablebase, table_datetime):
     return "%s_y%04d_m%02d" % (
         tablebase,
@@ -62,13 +64,24 @@ def get_utctimestamp(dt):
 
 
 def create_table(cursor, table, parent, min_date, max_date):
-    stmt = "create table if not exists %s (CHECK( created_utc >= %d and created_utc < %d)) INHERITS (%s)" % (
+    stmt = "create table if not exists %s (CHECK( created_utc >= '%s' and created_utc < '%s')) INHERITS (%s)" % (
         table,
-        get_utctimestamp(min_date), get_utctimestamp(max_date),
+        min_date, max_date,
         parent)
 
     cursor.execute(stmt)
 
+def vacuum(conn, cur, tablename):
+    old_isolation_level = conn.isolation_level
+    conn.set_isolation_level(0)
+    query = "VACUUM FULL {}".format(tablename)
+    cur.execute(query)
+    conn.set_isolation_level(old_isolation_level)
+
+def verify_date_range(begin, end, dt):
+    #val = dt >= begin and dt < end
+    #print begin, end, dt, val
+    return dt >= begin and dt < end
 
 #
 # PARSER
@@ -130,6 +143,7 @@ except Exception, e:
 # Begin Database Connection
 #
 cur = conn.cursor()
+cur.execute("SET TIME ZONE 'UTC';")
 psycopg2.extras.register_default_json(loads=lambda x: x)
 
 
@@ -138,10 +152,13 @@ status_updater.total_files = 1
 
 table_dt = datetime(int(mo.group(1)), int(mo.group(2)), 1)
 next_table_dt = table_dt + relativedelta(months=1)
+next_next_table_dt = next_table_dt + relativedelta(months=1)
 
 
 tablename = generate_tablename(args.table, table_dt)
+next_tablename = generate_tablename(args.table, next_table_dt)
 
+inserted_ids = set()
 
 if args.filename.endswith(".bz2"):
     print "detected bz2 file..."
@@ -159,6 +176,7 @@ else:
 try:
 
     create_table(cur, tablename, args.table, table_dt, next_table_dt)
+    create_table(cur, next_tablename, args.table, next_table_dt, next_next_table_dt)
 
     # update status
     status_updater.current_file = 0
@@ -174,24 +192,44 @@ try:
 
     # Core loop
     while True:
-        lines = [create_insert_tuple(i, args.live_id) for i in islice(infile, 64)]
+        all_lines = [create_insert_tuple(i, args.live_id) for i in islice(infile, 64)]
 
-        # enough is enough
-        if lines is None or len(lines) == 0:
+        if len(all_lines) == 0:
             break
 
-        # update parsed status updater
-        status_updater.count += len(lines)
+
+        lines = [l for l in all_lines if verify_date_range(table_dt, next_table_dt, l[2])]
+        overflow_lines = [l for l in all_lines if verify_date_range(next_table_dt, next_next_table_dt, l[2])]
+
+        #print len(lines), len(overflow_lines)
+
+        for l in lines:
+            if l[0] in inserted_ids:
+                print "duplicate!"
+            else:
+                inserted_ids.add(l[0])
+
 
         try:
-            values = ','.join(
-                cur.mogrify(arg_list, x) for x in lines)
-            query = "insert into %s %s values " % (
-                args.table, db_cols)
-            cur.execute(query + values)
+            if len(lines) > 0:
+                values = ','.join(
+                    cur.mogrify(arg_list, x) for x in lines)
+                query = "insert into %s %s values " % (
+                    tablename, db_cols)
+                cur.execute(query + values)
+
+
+            if len(overflow_lines) > 0:
+                values = ','.join(
+                    cur.mogrify(arg_list, x) for x in overflow_lines)
+                query = "insert into %s %s values " % (
+                    next_tablename, db_cols)
+                cur.execute(query + values)
+
 
             # update status updater
-            status_updater.total_added += len(lines)
+            status_updater.count += len(all_lines)
+            status_updater.total_added += len(all_lines)
 
         except Exception, e:
             traceback.print_exc()
@@ -204,9 +242,39 @@ try:
         status_updater.update()
 
 
+    status_updater.update(force=True)
+    # create indexes
+    primary_key_sql = "ALTER TABLE {} ADD PRIMARY KEY (id);".format(tablename)
+    id_brin_sql = "CREATE INDEX {}_id_brin_idx ON {} using BRIN (id);".format(tablename, tablename)
+    date_index_sql = "CREATE INDEX ON {} (created_utc);".format(tablename)
+    date_brin_sql = "CREATE INDEX {}_created_utc_brin_idx ON {} (created_utc);".format(tablename, tablename)
+        
+    try:
+        print "\tadding indexes..."
+        cur.execute(primary_key_sql)
+        cur.execute(id_brin_sql)
+        cur.execute(date_index_sql)
+        cur.execute(date_brin_sql)
+        #cur.execute("VACUUM ANALYZE {};".format(tablename))
+        conn.commit()
+        print "\tvacuuming..."
+        vacuum(conn,cur, tablename)
+        pass
+    except Exception, e:
+        print "EXCEPTION: ", e
+        print "QUERY: ", cur.query
+        traceback.print_exc()
+        quit()
+
+except Exception, e:
+    print "EXCEPTION:", e
+    traceback.print_exc()
+
+
 finally:
     # make sure to close the file
     infile.close()
+    #quit()
 
 # commit the data
 conn.commit()
