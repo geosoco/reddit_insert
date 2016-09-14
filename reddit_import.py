@@ -94,7 +94,7 @@ status_updater.total_files = 1
 
 if args.filename.endswith(".bz2"):
     print "detected bz2 file..."
-    infile = bz2.BZ2File(args.filename, "r", 1024*1024*4)
+    infile = bz2.BZ2File(args.filename, "r", 1024*1024*128)
     file_length = 0
 else:
     infile = open(args.filename, "r")
@@ -122,7 +122,7 @@ try:
     
 
     while True:
-        lines = [create_insert_tuple(i, args.live_id) for i in islice(infile, 10)]
+        lines = [create_insert_tuple(i, args.live_id) for i in islice(infile, 256)]
 
         # enough is enough
         if lines is None or len(lines) == 0:

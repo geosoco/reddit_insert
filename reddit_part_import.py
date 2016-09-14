@@ -8,6 +8,7 @@ import os
 import traceback
 import argparse
 import psycopg2
+from psycopg2.extras import wait_select
 import getpass
 from datetime import datetime
 import bz2
@@ -22,8 +23,9 @@ import calendar
 from status_updater import *
 
 
-def create_insert_tuple(line, live_id):
-    obj = json.loads(line)
+def create_insert_tuple(line, live_id=None, type="submissions"):
+    corrected_line = re.sub(r"(?<!\\)\\u0000", " ", line)
+    obj = json.loads(corrected_line)
     if "kind" in obj and obj["kind"] == "LiveUpdate":
         obj = obj["data"]
     try:
@@ -38,6 +40,14 @@ def create_insert_tuple(line, live_id):
             line)
         if live_id is not None:
             t += (live_id,)
+        elif type.lower() == "comments":
+            article = obj["link_id"]
+            article = int(article[3:],36) if article.startswith("t3") else article
+            parent = obj["parent_id"]
+            parent = int(parent[3:], 36) if parent is not None and parent[:2].lower() == 't1' else None
+            root_comment = id_int if parent is None else None
+            depth = 1 if parent is None else None
+            t += (parent, article, depth, root_comment)
 
         return t
     except KeyError, e:
@@ -48,6 +58,8 @@ def create_insert_tuple(line, live_id):
         print "Exception", e
         traceback.print_exc()
         raise e
+
+
 
 
 
@@ -63,25 +75,109 @@ def get_utctimestamp(dt):
     return calendar.timegm(dt.utctimetuple())
 
 
-def create_table(cursor, table, parent, min_date, max_date):
+def create_table(conn, table, parent, min_date, max_date):
     stmt = "create table if not exists %s (CHECK( created_utc >= '%s' and created_utc < '%s')) INHERITS (%s)" % (
         table,
         min_date, max_date,
         parent)
 
-    cursor.execute(stmt)
+    conn.execute(stmt)
 
-def vacuum(conn, cur, tablename):
-    old_isolation_level = conn.isolation_level
-    conn.set_isolation_level(0)
+def vacuum(conn, tablename):
+    #print ">> vacuum"
+    conn.create_connection(async=False)
+    #print "stroing isolation level"
+    old_isolation_level = conn.conn.isolation_level
+    #print "setting isolation level"
+    conn.conn.set_isolation_level(0)
     query = "VACUUM FULL {}".format(tablename)
-    cur.execute(query)
-    conn.set_isolation_level(old_isolation_level)
+    #print "executing query"
+    try:
+        conn.execute(query)
+    except Exception, e:
+        print "Exception: ", e
+        traceback.print_exc()
+        quit()
+
+    #print "reset isolation level"
+    conn.conn.set_isolation_level(old_isolation_level)
 
 def verify_date_range(begin, end, dt):
     #val = dt >= begin and dt < end
     #print begin, end, dt, val
     return dt >= begin and dt < end
+
+
+
+class ConnectionWrapper(object):
+
+    def __init__(self, host, database, username, password, async=False):
+        self.host = host
+        self.database = database
+        self.username = username
+        self.password = password
+        self.conn = None
+        self.create_connection(async=async)
+        self.async = async
+        self.cursor = None
+
+    def create_connection(self, async=False):
+        self.close()
+        try:
+            self.conn = psycopg2.connect(
+                host=self.host,
+                database=self.database,
+                user=self.username,
+                password=self.password,
+                async=async
+                )
+            self.async = async
+        except Exception, e:
+            print "failed to connect as '%s@%s' to database '%s'" % (
+                username,
+                args.host,
+                args.database)
+            traceback.print_exc()
+            quit()
+
+
+    def _ensure_cursor(self):
+        if self.cursor is None:
+            if self.async:
+                wait_select(self.conn)
+            self.cursor = self.conn.cursor()
+
+
+    def execute(self, query):
+        self._ensure_cursor()
+
+        if self.async is True:
+            wait_select(self.conn)
+
+        self.cursor.execute(query)
+
+
+    def close_cursor(self):
+        if self.cursor is not None:
+            if self.cursor.closed is False:
+                if self.async is True:
+                    wait_select(self.conn)
+
+                self.cursor.close()
+            self.cursor = None
+
+    def close(self):
+        if self.conn is not None:
+            self.close_cursor()
+
+            if self.async is True:
+                wait_select(self.conn)
+            else:
+                self.conn.commit()
+
+            if self.conn.closed is False:
+                self.conn.close()
+            self.conn = None
 
 #
 # PARSER
@@ -123,27 +219,19 @@ if args.password:
             args.database))
 
 
-try:
-    conn = psycopg2.connect(
+conn = ConnectionWrapper(
         host=args.host,
         database=args.database,
-        user=username,
-        password=user_password
-        )
-except Exception, e:
-    print "failed to connect as '%s@%s' to database '%s'" % (
-        username,
-        args.host,
-        args.database)
-    traceback.print_exc()
-    quit()
+        username=username,
+        password=user_password,
+        async=True
+    )
 
 
 #
 # Begin Database Connection
 #
-cur = conn.cursor()
-cur.execute("SET TIME ZONE 'UTC';")
+conn.execute("SET TIME ZONE 'UTC';")
 psycopg2.extras.register_default_json(loads=lambda x: x)
 
 
@@ -162,7 +250,7 @@ inserted_ids = set()
 
 if args.filename.endswith(".bz2"):
     print "detected bz2 file..."
-    infile = bz2.BZ2File(args.filename, "r", 1024*1024*8)
+    infile = bz2.BZ2File(args.filename, "r", 1024*1024*32)
     file_length = 0
 else:
     infile = open(args.filename, "r")
@@ -174,9 +262,8 @@ else:
 
 
 try:
-
-    create_table(cur, tablename, args.table, table_dt, next_table_dt)
-    create_table(cur, next_tablename, args.table, next_table_dt, next_next_table_dt)
+    create_table(conn, tablename, args.table, table_dt, next_table_dt)
+    create_table(conn, next_tablename, args.table, next_table_dt, next_next_table_dt)
 
     # update status
     status_updater.current_file = 0
@@ -186,13 +273,16 @@ try:
     db_fields = ["id", "author", "created_utc", "data"]
     if args.live_id is not None:
         db_fields.append("live_id")
+    elif args.table.lower() == "comments":
+        db_fields += ["parent_id", "num_children", "depth", "root_comment"]
+        #print db_fields
 
     arg_list = "(%s)" % (",".join(["%s"] * len(db_fields)))
     db_cols = "(%s)" % (",".join(db_fields))
 
     # Core loop
     while True:
-        all_lines = [create_insert_tuple(i, args.live_id) for i in islice(infile, 64)]
+        all_lines = [create_insert_tuple(i, args.live_id, args.table) for i in islice(infile, 512)]
 
         if len(all_lines) == 0:
             break
@@ -213,18 +303,20 @@ try:
         try:
             if len(lines) > 0:
                 values = ','.join(
-                    cur.mogrify(arg_list, x) for x in lines)
+                    conn.cursor.mogrify(arg_list, x) for x in lines)
                 query = "insert into %s %s values " % (
                     tablename, db_cols)
-                cur.execute(query + values)
+                conn.execute(query + values)
+                #print "\n" * 4, query
+                #print "\n".join([repr(v) for v in lines])
 
 
             if len(overflow_lines) > 0:
                 values = ','.join(
-                    cur.mogrify(arg_list, x) for x in overflow_lines)
+                    conn.cursor.mogrify(arg_list, x) for x in overflow_lines)
                 query = "insert into %s %s values " % (
                     next_tablename, db_cols)
-                cur.execute(query + values)
+                conn.execute(query + values)
 
 
             # update status updater
@@ -232,6 +324,7 @@ try:
             status_updater.total_added += len(all_lines)
 
         except Exception, e:
+            print "EXCEPTION: ", e
             traceback.print_exc()
             quit()
 
@@ -244,25 +337,38 @@ try:
 
     status_updater.update(force=True)
     # create indexes
-    primary_key_sql = "ALTER TABLE {} ADD PRIMARY KEY (id);".format(tablename)
-    id_brin_sql = "CREATE INDEX {}_id_brin_idx ON {} using BRIN (id);".format(tablename, tablename)
-    date_index_sql = "CREATE INDEX ON {} (created_utc);".format(tablename)
-    date_brin_sql = "CREATE INDEX {}_created_utc_brin_idx ON {} (created_utc);".format(tablename, tablename)
+    
+    
+    
+    
         
     try:
         print "\tadding indexes..."
-        cur.execute(primary_key_sql)
-        cur.execute(id_brin_sql)
-        cur.execute(date_index_sql)
-        cur.execute(date_brin_sql)
-        #cur.execute("VACUUM ANALYZE {};".format(tablename))
-        conn.commit()
+        primary_key_sql = "ALTER TABLE {} ADD PRIMARY KEY (id);".format(tablename)
+        conn.execute(primary_key_sql)
+
+        id_brin_sql = "CREATE INDEX {}_id_brin_idx ON {} using BRIN (id);".format(tablename, tablename)
+        conn.execute(id_brin_sql)
+
+        date_index_sql = "CREATE INDEX ON {} (created_utc);".format(tablename)
+        conn.execute(date_index_sql)
+
+        date_brin_sql = "CREATE INDEX {}_created_utc_brin_idx ON {} (created_utc);".format(tablename, tablename)
+        conn.execute(date_brin_sql)
+
+        #wait_select(conn)
+        #conn.commit()
         print "\tvacuuming..."
-        vacuum(conn,cur, tablename)
+        #conn.close()
+
+        vacuum(conn, tablename)
         pass
     except Exception, e:
         print "EXCEPTION: ", e
-        print "QUERY: ", cur.query
+        if conn is not None and conn.cursor is not None and conn.query is not None:
+            print "QUERY: ", conn.cursor.query
+        else:
+            print "NULL QUERY"
         traceback.print_exc()
         quit()
 
@@ -277,7 +383,8 @@ finally:
     #quit()
 
 # commit the data
-conn.commit()
+#conn.commit()
+conn.close()
 status_updater.update(force=True)
 print "Completed successfully!"
 

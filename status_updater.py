@@ -4,7 +4,7 @@ from datetime import datetime
 
 class StatusUpdater(object):
 
-    def __init__(self, update_time = 5, count = 0, current_val = 0, total_val = 0, total_added = 0):
+    def __init__(self, update_time = 30, count = 0, current_val = 0, total_val = 0, total_added = 0):
         self.update_time = update_time
         self.last_display_time = datetime.now()
         self.last_count = 0
