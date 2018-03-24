@@ -25,7 +25,13 @@ from status_updater import *
 
 def create_insert_tuple(line, live_id=None, type="submissions"):
     corrected_line = re.sub(r"(?<!\\)\\u0000", " ", line)
+    corrected_line = re.sub("\00", "<<:NULL:>>", corrected_line)
     obj = json.loads(corrected_line)
+    #if '\\u000' in corrected_line or '\u0000' in corrected_line:
+    #    print "---- str still has null"
+    #    print corrected_line
+    #    print obj
+
     if "kind" in obj and obj["kind"] == "LiveUpdate":
         obj = obj["data"]
     try:
@@ -37,7 +43,7 @@ def create_insert_tuple(line, live_id=None, type="submissions"):
             id_int,
             obj.get("author", None),
             dt,
-            line)
+            corrected_line)
         if live_id is not None:
             t += (live_id,)
         elif type.lower() == "comments":
@@ -282,7 +288,7 @@ try:
 
     # Core loop
     while True:
-        all_lines = [create_insert_tuple(i, args.live_id, args.table) for i in islice(infile, 512)]
+        all_lines = [create_insert_tuple(i, args.live_id, args.table) for i in islice(infile, 64)]
 
         if len(all_lines) == 0:
             break
@@ -301,6 +307,8 @@ try:
 
 
         try:
+            values = []
+            query = None
             if len(lines) > 0:
                 values = ','.join(
                     conn.cursor.mogrify(arg_list, x) for x in lines)
@@ -309,8 +317,19 @@ try:
                 conn.execute(query + values)
                 #print "\n" * 4, query
                 #print "\n".join([repr(v) for v in lines])
+        except Exception, e:
+            print "EXCEPTION: ", e
+            traceback.print_exc()
+            print "-" * 78
+            print "total items added: ", status_updater.total_added
+            print query
+            for i, v in enumerate(lines):
+                print "<>"*30, "\n", i,"\n", v, "\n\n"
+            print values
+            quit()
 
 
+        try:
             if len(overflow_lines) > 0:
                 values = ','.join(
                     conn.cursor.mogrify(arg_list, x) for x in overflow_lines)
@@ -324,9 +343,16 @@ try:
             status_updater.total_added += len(all_lines)
 
         except Exception, e:
-            print "EXCEPTION: ", e
+            print "EXCEPTION(overflowlines): ", e
             traceback.print_exc()
+            print "-" * 78
+            print "total items added: ", status_updater.total_added
+            print query
+            for i, v in enumerate(overflow_lines):
+                print "<>"*30, "\n", i,"\n", v, "\n\n"
+            print values
             quit()
+
 
         # update status updater
         if file_length > 0:
@@ -353,7 +379,7 @@ try:
         date_index_sql = "CREATE INDEX ON {} (created_utc);".format(tablename)
         conn.execute(date_index_sql)
 
-        date_brin_sql = "CREATE INDEX {}_created_utc_brin_idx ON {} (created_utc);".format(tablename, tablename)
+        date_brin_sql = "CREATE INDEX {}_created_utc_brin_idx ON {} using BRIN (created_utc);".format(tablename, tablename)
         conn.execute(date_brin_sql)
 
         #wait_select(conn)
