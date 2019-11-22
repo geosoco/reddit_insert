@@ -318,6 +318,31 @@ class BinaryCopy():
         self.fs.truncate()
 
 
+    def copy(self, conn, table, lines, thing_type):
+        self.write_binary_header()
+
+
+        if thing_type == "comments":
+            for l in lines:
+                self.write_comment_row(l)
+        elif thing_type == "submissions":
+            for l in lines:
+                self.write_submission_row(l)
+        else:
+            raise Exception("Unknown thing type {}".format(thing_type))
+
+
+        # write end of task
+        self.fs.write(pack('!h', -1))
+        self.fs.flush()
+        self.fs.seek(0)
+
+        conn.cursor.copy_expert("copy %s from stdin with binary " % (table), self.fs )
+
+        self.fs.seek(0)
+        self.fs.truncate()
+
+
 
 def fix_linux_pipe(fd):
     import fcntl
@@ -495,24 +520,14 @@ try:
 
 
         # do the copy of valid data
-        if table_base_name == "comments":
-            bc.copy_comments(conn, tablename, lines)
-            #copy_string_iterator_comment(conn, tablename, lines)
+        bc.copy(conn, tablename, lines, table_base_name)
 
-            # do copy of the misfiled data
-            if len(overflow_lines) > 0:
-                #copy_string_iterator_comment(conn, next_tablename, overflow_lines)
-                bc.copy_comments(conn, tablename, lines)
-        else:
-            bc.copy_submissions(conn, tablename, lines)
-            #copy_string_iterator_comment(conn, tablename, lines)
+        # do copy of the misfiled data
+        if len(overflow_lines) > 0:
+            bc.copy(conn, tablename, lines, table_base_name)
 
-            # do copy of the misfiled data
-            if len(overflow_lines) > 0:
-                #copy_string_iterator_comment(conn, next_tablename, overflow_lines)
-                bc.copy_submissions(conn, tablename, lines)
 
-       
+   
     
 
 
