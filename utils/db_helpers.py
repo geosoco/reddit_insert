@@ -12,6 +12,7 @@ from psycopg2.extras import wait_select
 import traceback
 import getpass
 
+
 class ConnectionWrapper():
 
     def __init__(self, host, port, database, username, password, async_conn=False):
@@ -97,6 +98,7 @@ class ConnectionWrapper():
 
 
 def get_connection(username, password, host, port, database, async_conn=False): 
+
     # set our username
     if username is None or len(username) == 0:
         username = getpass.getuser()
