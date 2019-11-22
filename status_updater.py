@@ -32,8 +32,8 @@ class StatusUpdater(object):
                 progress = self.current_val * 100.0 / self.total_val
             else:
                 progress = self.current_val
-            print "File %d / %d -  %d added (%2.2f%%). %2.2f/sec" % (
+            print("File %d / %d -  %d added (%2.2f%%). %2.2f/sec" % (
                 self.current_file+1, 
                 self.total_files, self.total_added, progress,
-                rate)
+                rate))
 
