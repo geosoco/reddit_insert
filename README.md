@@ -7,7 +7,7 @@ There's also a couple of other scripts in here, which may need to be updated to 
 Some of the work in here attempts to optimize the usage of this data, such as making sure the data is clustered by the id (Which can be somewhat problematic in the earlier years where ids tend to jump or work backwards over time). These make a relatively small amount, so it's generally more beneficial to have them all run via `created_utc` increasing. 
 
 
-==reddit_part_copy.py==
+## reddit_part_copy.py
 
 This file uses postgres' binary copy method to insert comments and submissions into year_month partitions. It creates unlogged tables for the partition, copies, clusters, adds log, then adds indexes and it can do it pretty quickly. 
 
