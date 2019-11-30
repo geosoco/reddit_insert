@@ -7,7 +7,7 @@ import os
 import traceback
 import argparse
 import getpass
-from datetime import datetime, MINYEAR, MAXYEAR
+from datetime import datetime, timezone, MINYEAR, MAXYEAR
 import bz2
 import re
 #import ujson as json
@@ -53,7 +53,7 @@ def write_line(outdir, filetype, file_dt, line_dt, line):
         filetype,
         line_dt.strftime("%Y-%m")
         )
-    path = os.path.join(outdir, fname)
+    path = os.path.join(outdir, dirname)
     os.makedirs(path, exist_ok=True)
 
     filename = "R{}_{}".format(
@@ -78,6 +78,7 @@ parser = argparse.ArgumentParser(description="extract out-of-range date data")
 parser.add_argument('filename', help='filename to import')
 parser.add_argument('outdir', help="optional output directory for missing data files")
 parser.add_argument('--pseudo', help='actual filename to import')
+parser.add_argument('--chunk_size', default=256, help='chunk size to use')
 
 
 args = parser.parse_args()
@@ -104,11 +105,11 @@ if mo is None:
 
 file_type = mo.group(1).upper()
 
-table_dt = datetime(int(mo.group(2)), int(mo.group(3)), 1, tzinfo=timezone.utc)
+table_dt = datetime(int(mo.group(2)), int(mo.group(3)), 1)
 next_table_dt = table_dt + relativedelta(months=1)
 
 # set default buffer size before opening files
-io.DEFAULT_BUFFER_SIZE = io_buffer_size
+io.DEFAULT_BUFFER_SIZE = 1024*1024*4
 
 
 status_updater = StatusUpdater()
@@ -140,48 +141,52 @@ else:
         fix_linux_pipe(infile)
 
 
-    while True:
-        all_lines =  [s.strip(my_whitespace) for s in islice(infile, chunk_size)]
+while True:
+    all_lines =  [s.strip(my_whitespace) for s in islice(infile, args.chunk_size)]
 
-        if len(all_lines) == 0:
-            break
+    if len(all_lines) == 0:
+        break
 
-        for l in all_lines:
-            #line = line.strip(my_whitespace)
+    for l in all_lines:
+        #line = line.strip(my_whitespace)
 #           if "\\u0000" in line or "\u0000" in line or "\0" in line:
 #               line = line.replace("\\u0000", "\\\\u0000")
 #               line = line.replace("\u0000", "\\\\u0000")
 #               line = line.replace("\0", "<<::NULL::>>")
 
 
-            try:
-                obj = json.loads(line)
-            except ValueError as e:
-                print("Couldn't read line")
-                print("-"*50)
-                print(line)
-                print("-"*50)
-                hexdump(line)
+        try:
+            obj = json.loads(l)
+        except ValueError as e:
+            print("Couldn't read line")
+            print("-"*50)
+            print(line)
+            print("-"*50)
+            hexdump(line)
 
-                continue
+            continue
 
-            # get timestamp
-            timestamp = int(obj["created_utc"])
-            dt = datetime.utcfromtimestamp(timestamp)
-
-
-            if dt < table_dt or dt >= next_table_dt:
-                write_line(
-                    args.outdir,
-                    file_type,
-                    table_dt,
-                    dt,
-                    )
-                status_updater.total_added += 1
+        # get timestamp
+        timestamp = int(obj["created_utc"])
+        dt = datetime.utcfromtimestamp(timestamp)
 
 
-            # update status updater
-            status_updater.count += 1
+        if dt < table_dt or dt >= next_table_dt:
+            write_line(
+                args.outdir,
+                file_type,
+                table_dt,
+                dt,
+                l
+                )
+            status_updater.total_added += 1
 
-            status_updater.update()
 
+        # update status updater
+        status_updater.count += 1
+
+        status_updater.update()
+
+
+status_updater.update(force=True)
+print("Finished!")
