@@ -6,6 +6,7 @@ import argparse
 from utils.db_helpers import ConnectionWrapper, get_connection
 from utils.iterhelpers import StringIteratorIO
 from utils.stopwatch import StopWatchCollection
+from utils.file_utils import is_pipe, set_pipe_size
 from itertools import islice
 from ezconf import ConfigFile
 
@@ -88,9 +89,20 @@ def fix_unicode_string(line):
     """
     s = re.sub(r"(?<!\\)\\u0000", " ", line)
     s = re.sub("\00", "<<:NULL:>>", s)
+    s = s.replace("\0", "<<:NULL:>>")
 
     return s.replace('"', '""')
 
+
+def fix_null_in_unicode(line):
+    """
+    Fixes null escapes appearing from json that gets interpreted by postgres
+    """
+    s = re.sub(r"(?<!\\)\\u0000", " ", line.strip("").strip("\0"))
+    s = re.sub("\0", "<<:NULL:>>", s)
+    return s
+
+    #return line.replace("\\u0000", "\\\\u0000").replace("\0", "<<:NULL:>>").replace("\x00", "<<:NULL:>>")
 
 def verify_date_range(begin, end, timestamp):
     #val = dt >= begin and dt < end
@@ -144,7 +156,7 @@ def vacuum(conn, tablename):
     except Exception as e:
         print("Exception: ", e)
         traceback.print_exc()
-        quit()
+        exit(1)
 
     #print "reset isolation level"
     conn.conn.set_isolation_level(old_isolation_level)
@@ -204,7 +216,7 @@ def copy_string_iterator_comment(conn, table, rows: Iterator[Tuple[str,Dict[str,
         print("-----")
 
         print(e)
-        quit(1)
+        exit(1)
 
 
 
@@ -342,18 +354,6 @@ class BinaryCopy():
         self.fs.seek(0)
         self.fs.truncate()
 
-
-
-def fix_linux_pipe(fd):
-    import fcntl
-    if not hasattr(fcntl, 'F_SETPIPE_SZ'):
-        import platform
-
-        if platform.system() == 'Linux':
-            fcntl.F_SETPIPE_SZ = 1031
-            print("fixed pipe size")
-
-            fcntl.fcntl(fd, fcntl.F_SETPIPE_SZ, 1024*1024)
     
 
 
@@ -372,12 +372,14 @@ parser.add_argument('-p', '--password', help="password", action="store_true")
 parser.add_argument('-s', '--size', type=int, default=512, help="number of record to read at one time")
 parser.add_argument('--pseudo', help="a pseudofilename for working with pipes instead of direct intput")
 parser.add_argument('--config', default='config.json', help="a json config file for storing settings")
-
+parser.add_argument('--no_overflow', action="store_true", help="don't add any data from outside the date range")
+parser.add_argument('--insert_only', action="store_true", help="don't add primary key, index, or attach to partition")
 
 args = parser.parse_args()
 
 
-
+print("no_overflow: {}".format(args.no_overflow))
+print("insert_only: {}".format(args.insert_only))
 
 db_host = args.host
 db_port = args.port
@@ -391,6 +393,7 @@ pipe_size = 1024 * 1024
 if os.path.isfile(args.config):
     cfg = ConfigFile(args.config)
     if cfg is not None:
+        print("using config file")
         db_host = cfg.getValue("database.host", args.host)
         db_port = cfg.getValue("database.port", args.port)
         db_user = cfg.getValue("database.user", args.user)
@@ -416,18 +419,18 @@ fn = args.filename
 if fn == "-":
     if not args.hasattr("pseudo") or args.pseudo is none:
         print("if using stdin, you must specify a pseudo filename using --pseudo")
-        quit(1)
+        exit(1)
     else:
         fn = args.pseudo
 
 
 
-mo = re.match("R([SC])_(\d{4})-(\d{2}).*", os.path.basename(fn), re.I)
+mo = re.match("R([SC])_(?:v2_)?(\d{4})-(\d{2}).*", os.path.basename(fn), re.I)
 if mo is None:
-    mo = re.match("R([SC])_(\d{4})-(\d{2}).*", args.pseudo, re.I)
+    mo = re.match("R([SC])_(?:v2_)?(\d{4})-(\d{2}).*", args.pseudo, re.I)
     if mo is None:
         print("Couldn't parse date from filename. (expects R[SC]_YYYY-MM.*)", os.path.basename(fn))
-        quit(1)
+        exit(1)
 
 
 
@@ -451,7 +454,7 @@ next_tablename = generate_tablename(table_base_name, next_table_dt)
 io.DEFAULT_BUFFER_SIZE = io_buffer_size
 
 
-
+infile = None
 if args.filename.endswith(".bz2"):
     print("detected bz2 file...")
     #infile = bz2.BZ2File(args.filename, "rt")
@@ -465,7 +468,7 @@ else:
     infile = open(args.filename, "r")
 
     file_length = 0
-    if stat.S_ISFIFO(os.stat(args.filename).st_mode) is False:
+    if is_pipe(args.filename) is False:
         # get file length
         try:
             infile.seek(0, os.SEEK_END)
@@ -474,11 +477,19 @@ else:
         except io.UnsupportedOperation:
             file_length = 0
     else:
-        fix_linux_pipe(infile)
+        print("detected pipe")
+        set_pipe_size(infile, pipe_size)
+
+if infile is None:
+    print("Couldn't open infile")
+    exit(1)
 
 # build a connection
 sw.start("db connection")
 conn = get_connection(db_user,db_password, db_host, db_port, args.database, async_conn=False)
+if conn is None:
+    print("Couldn't create connection")
+    exit(1)
 sw.stop("db connection")
 
 
@@ -499,7 +510,8 @@ try:
     # start processing the file
     sw.start("db copy")
     while True:
-        all_lines =  [(s.strip('\n'), json.loads(s)) for s in islice(infile, chunk_size)]
+        all_lines = [fix_null_in_unicode(s.strip('\n')) for s in islice(infile, chunk_size)]
+        all_lines = [(s, json.loads(s)) for s in all_lines]
 
         if len(all_lines) == 0:
             break
@@ -516,15 +528,17 @@ try:
                 if (verify_date_range(table_uts, next_table_uts, int(l[1]["created_utc"])) is False and
                     verify_date_range(next_table_uts, next_next_table_uts, int(l[1]["created_utc"])) is False):
                         print(l[1]["id"], l[1]["created_utc"])
-            quit(1)
+            exit(1)
 
 
         # do the copy of valid data
-        bc.copy(conn, tablename, lines, table_base_name)
+        if len(lines) > 0:
+            bc.copy(conn, tablename, lines, table_base_name)
 
         # do copy of the misfiled data
         if len(overflow_lines) > 0:
-            bc.copy(conn, tablename, lines, table_base_name)
+            if args.no_overflow is False:
+                bc.copy(conn, tablename, overflow_lines, table_base_name)
 
 
    
@@ -545,92 +559,93 @@ try:
 
     try:
 
+        if args.insert_only is False:
 
-        print("\tadding pk...")
-        sw.start("add pk")
-        primary_key_sql = "ALTER TABLE {} ADD PRIMARY KEY (id);".format(tablename)
-        conn.execute(primary_key_sql)
-        sw.stop("add pk")
+            print("\tadding pk...")
+            sw.start("add pk")
+            primary_key_sql = "ALTER TABLE {} ADD PRIMARY KEY (id);".format(tablename)
+            conn.execute(primary_key_sql)
+            sw.stop("add pk")
 
-        
-        print("\tclustering...")
-        sw.start("cluster")
-        conn.execute("CLUSTER {} using {}_pkey".format(tablename, tablename))
-        sw.stop("cluster")
+            
+            print("\tclustering...")
+            sw.start("cluster")
+            conn.execute("CLUSTER {} using {}_pkey".format(tablename, tablename))
+            sw.stop("cluster")
 
-        print("\tSetting logged...")
-        sw.start("set logged")
-        conn.execute(
-            "ALTER TABLE {} SET LOGGED".format(tablename))
-        sw.stop("set logged")
-
-
-        print("\tattaching...")
-        sw.start("add constraint")
-        constraint_name = "y%04d_m%02d" % (table_dt.year, table_dt.month)
-        start_date_str = "%04d-%02d-01 00:00:00" % (table_dt.year, table_dt.month)
-        end_date_str = "%04d-%02d-01 00:00:00" % (next_table_dt.year, next_table_dt.month)
-        conn.execute(
-            "ALTER TABLE {} add constraint {} CHECK( created_utc >= TIMESTAMP '{}' and created_utc < TIMESTAMP '{}');".format(
-                tablename, constraint_name, start_date_str, end_date_str ))
-        sw.stop("add constraint")
-
-        sw.start("attaching")
-        conn.execute(
-            "ALTER TABLE {} ATTACH PARTITION {} FOR VALUES FROM ('{}') to ('{}');".format(
-                table_base_name,
-                tablename,
-                start_date_str,
-                end_date_str
-                ))
-        sw.stop("attaching")
+            print("\tSetting logged...")
+            sw.start("set logged")
+            conn.execute(
+                "ALTER TABLE {} SET LOGGED".format(tablename))
+            sw.stop("set logged")
 
 
-        print("\tadding index...")
-        sw.start("index: brin(id)")
-        id_brin_sql = "CREATE INDEX {}_id_brin_idx ON {} using BRIN (id);".format(tablename, tablename)
-        conn.execute(id_brin_sql)
-        sw.stop("index: brin(id)")
+            print("\tattaching...")
+            sw.start("add constraint")
+            constraint_name = "y%04d_m%02d" % (table_dt.year, table_dt.month)
+            start_date_str = "%04d-%02d-01 00:00:00" % (table_dt.year, table_dt.month)
+            end_date_str = "%04d-%02d-01 00:00:00" % (next_table_dt.year, next_table_dt.month)
+            conn.execute(
+                "ALTER TABLE {} add constraint {} CHECK( created_utc >= TIMESTAMP '{}' and created_utc < TIMESTAMP '{}');".format(
+                    tablename, constraint_name, start_date_str, end_date_str ))
+            sw.stop("add constraint")
+
+            sw.start("attaching")
+            conn.execute(
+                "ALTER TABLE {} ATTACH PARTITION {} FOR VALUES FROM ('{}') to ('{}');".format(
+                    table_base_name,
+                    tablename,
+                    start_date_str,
+                    end_date_str
+                    ))
+            sw.stop("attaching")
 
 
-        sw.start("index: created_utc")
-        date_index_sql = "CREATE INDEX ON {} (created_utc);".format(tablename)
-        conn.execute(date_index_sql)
-        sw.stop("index: created_utc")
-
-        sw.start("index: brin(created_utc)")
-        conn.execute(
-            "CREATE INDEX {}_created_utc_brin_idx ON {} using BRIN (created_utc);".format(
-                tablename, tablename))
-        sw.stop("index: brin(created_utc)")
+            print("\tadding index...")
+            sw.start("index: brin(id)")
+            id_brin_sql = "CREATE INDEX {}_id_brin_idx ON {} using BRIN (id);".format(tablename, tablename)
+            conn.execute(id_brin_sql)
+            sw.stop("index: brin(id)")
 
 
-        sw.start("index: subreddit")
-        
-        conn.execute(
-            "CREATE INDEX {}_subreddit_idx on {} (subreddit);".format(
-                tablename, tablename))
-        sw.stop("index: subreddit")
+            sw.start("index: created_utc")
+            date_index_sql = "CREATE INDEX ON {} (created_utc);".format(tablename)
+            conn.execute(date_index_sql)
+            sw.stop("index: created_utc")
 
-        sw.start("index: author")
-        conn.execute(
-            "CREATE INDEX {}_author_idx on {} (author);".format(
-                tablename, tablename))
-        sw.stop("index: author")
+            sw.start("index: brin(created_utc)")
+            conn.execute(
+                "CREATE INDEX {}_created_utc_brin_idx ON {} using BRIN (created_utc);".format(
+                    tablename, tablename))
+            sw.stop("index: brin(created_utc)")
 
 
+            sw.start("index: subreddit")
+            
+            conn.execute(
+                "CREATE INDEX {}_subreddit_idx on {} (subreddit);".format(
+                    tablename, tablename))
+            sw.stop("index: subreddit")
 
-        #wait_select(conn)
-        sw.start("commit")
-        conn.commit()
-        sw.stop("commit")
+            sw.start("index: author")
+            conn.execute(
+                "CREATE INDEX {}_author_idx on {} (author);".format(
+                    tablename, tablename))
+            sw.stop("index: author")
 
 
-        print("\tvacuuming...")
-        #conn.close()
-        sw.start("vacuum")
-        vacuum(conn, tablename)
-        sw.stop("vacuum")
+
+            #wait_select(conn)
+            sw.start("commit")
+            conn.commit()
+            sw.stop("commit")
+
+
+            print("\tvacuuming...")
+            #conn.close()
+            sw.start("vacuum")
+            vacuum(conn, tablename)
+            sw.stop("vacuum")
 
 
 
@@ -644,19 +659,21 @@ try:
         else:
             print("NULL QUERY")
         traceback.print_exc()
-        quit(1)
+        traceback.print_stack()
+        exit(1)
 
 
 except Exception as e:
     print("EXCEPTION:", e)
     traceback.print_exc()
     traceback.print_stack()
+    exit(1)
 
 
 finally:
     # make sure to close the file
     infile.close()
-    #quit()
+    #exit()
 
 # commit the data
 #conn.commit()
