@@ -520,11 +520,12 @@ try:
 
 
         # do the copy of valid data
-        bc.copy(conn, tablename, lines, table_base_name)
+        if len(lines) > 0:
+            bc.copy(conn, tablename, lines, table_base_name)
 
         # do copy of the misfiled data
         if len(overflow_lines) > 0:
-            bc.copy(conn, tablename, lines, table_base_name)
+            bc.copy(conn, tablename, overflow_lines, table_base_name)
 
 
    
