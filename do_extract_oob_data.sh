@@ -20,13 +20,13 @@ while read F; do
 
     retval=0
     if [ $ext = 'bz2' ]; then
-        python -u extract_oob_dates.py "$filename" "$2"
+        python -u extract_oob_dates.py "$F" "$2"
         retval=${PIPESTATUS[0]}
     elif [ $ext = 'xz' ]; then
-        python -u extract_oob_dates.py "$filename" "$2"
+        python -u extract_oob_dates.py "$F" "$2"
         retval=${PIPESTATUS[0]}
     elif [ $ext = 'zst' ]; then
-        python -u extract_oob_dates.py "$filename" "$2"
+        python -u extract_oob_dates.py "$F" "$2"
         retval=${PIPESTATUS[0]}
     else
         echo "UNKNOWN EXTENSION: $ext"
