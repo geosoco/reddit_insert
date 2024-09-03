@@ -5,6 +5,9 @@ import ujson as json
 tests = [
 	r"\u0000",
 	r"a\u0000",
+	r"\0",
+	"\x00test",
+	r"\0testing",
 	r"a\u0000b",
 	r"\u0000\u0000",
 	r"\\u0000a",
@@ -25,12 +28,19 @@ json_tests = [
 r = re.compile(r"(?<!\\)\\u0000")
 
 
+print("Tests1\n------")
 for t in tests:
-	print repr(t), t,  r.sub("!", t)
+	print(repr(t), t,  r.sub("!", t))
 
 
+print("\n\n\nTests2\n----------")
+for t in tests:
+	print(repr(t), t, t.replace("\\u0000", "\\\\u0000").replace("\0", "<<NULL>>"))
+
+
+print("\n\n\nJSON Tests\n--------------")
 for t in json_tests:
 	s = r.sub(" ", t)
-	print "-" * 20, "\n" * 2
-	print "original:\n\n", t, "\n"
-	print "subbed:\n\n", repr(s), "\n"
+	print("-" * 20, "\n" * 2)
+	print("original:\n\n", t, "\n")
+	print("subbed:\n\n", repr(s), "\n")
