@@ -3,10 +3,13 @@
 
 
 import argparse
-from utils.db_helpers import ConnectionWrapper, get_connection
+from utils.db_helpers import (
+    ConnectionWrapper, get_connection, timestamp_to_pgtimestamp, clean_csv_value,
+    vacuum)
 from utils.iterhelpers import StringIteratorIO
 from utils.stopwatch import StopWatchCollection
 from utils.file_utils import is_pipe, set_pipe_size
+from utils.string_utils import fix_unicode_string, fix_null_in_unicode
 from itertools import islice
 from ezconf import ConfigFile
 
@@ -32,10 +35,6 @@ from struct import pack, Struct
 
 
 
-
-
-POSTGRES_EPOCH = 946684800
-
 _CREATE_BASE_SQL = "create unlogged table if not exists {} partition of {} for values from ('{}') to ('{}');"
 
 _CREATE_COMMENT_TABLE_SQL = \
@@ -44,18 +43,6 @@ _CREATE_COMMENT_TABLE_SQL = \
 
 _CREATE_SUBMISSION_TABLE_SQL = \
 "create {} table if not exists {} (LIKE submissions including defaults including constraints);"
-
-
-def timestamp_to_pgtimestamp(ts):
-    return (ts - POSTGRES_EPOCH) * 1000000
-
-def clean_csv_value(value: Optional[Any]) -> str:
-    """
-    Needs to properly escape these things
-    """
-    if value is None:
-        return r'\N'
-    return str(value).replace('\n', '\\n').replace('\0', '<<:NULL:>>')
 
 
 
@@ -83,26 +70,6 @@ def get_sub_id(id: str) -> Any:
     sub = int(id[3:], 36) if id is not None and id[:2] == 't5' else None
 
 
-def fix_unicode_string(line):
-    """
-    Fixes null escapes appearing from json that gets interpreted by postgres
-    """
-    s = re.sub(r"(?<!\\)\\u0000", " ", line)
-    s = re.sub("\00", "<<:NULL:>>", s)
-    s = s.replace("\0", "<<:NULL:>>")
-
-    return s.replace('"', '""')
-
-
-def fix_null_in_unicode(line):
-    """
-    Fixes null escapes appearing from json that gets interpreted by postgres
-    """
-    s = re.sub(r"(?<!\\)\\u0000", " ", line.strip("").strip("\0"))
-    s = re.sub("\0", "<<:NULL:>>", s)
-    return s
-
-    #return line.replace("\\u0000", "\\\\u0000").replace("\0", "<<:NULL:>>").replace("\x00", "<<:NULL:>>")
 
 def verify_date_range(begin, end, timestamp):
     #val = dt >= begin and dt < end
@@ -142,24 +109,7 @@ def create_table(conn, table, thing_type, min_date, max_date, drop=False, trunca
 
 
 
-def vacuum(conn, tablename):
-    #print ">> vacuum"
-    conn.create_connection(async_conn=False)
-    #print "stroing isolation level"
-    old_isolation_level = conn.conn.isolation_level
-    #print "setting isolation level"
-    conn.conn.set_isolation_level(0)
-    query = "VACUUM ANALYZE  {}".format(tablename)
-    #print "executing query"
-    try:
-        conn.execute(query)
-    except Exception as e:
-        print("Exception: ", e)
-        traceback.print_exc()
-        exit(1)
 
-    #print "reset isolation level"
-    conn.conn.set_isolation_level(old_isolation_level)
 
 
 
