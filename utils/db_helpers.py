@@ -11,6 +11,11 @@ import psycopg2
 from psycopg2.extras import wait_select
 import traceback
 import getpass
+from typing import Optional, Any
+
+
+POSTGRES_EPOCH = 946684800
+
 
 
 class ConnectionWrapper():
@@ -121,3 +126,35 @@ def get_connection(username, password, host, port, database, async_conn=False):
             password=password,
             async_conn=async_conn
         )
+
+
+def timestamp_to_pgtimestamp(ts):
+    return (ts - POSTGRES_EPOCH) * 1000000
+
+def clean_csv_value(value: Optional[Any]) -> str:
+    """
+    Needs to properly escape these things
+    """
+    if value is None:
+        return r'\N'
+    return str(value).replace('\n', '\\n').replace('\0', '<<:NULL:>>')
+
+
+def vacuum(conn, tablename):
+    #print ">> vacuum"
+    conn.create_connection(async_conn=False)
+    #print "stroing isolation level"
+    old_isolation_level = conn.conn.isolation_level
+    #print "setting isolation level"
+    conn.conn.set_isolation_level(0)
+    query = "VACUUM ANALYZE  {}".format(tablename)
+    #print "executing query"
+    try:
+        conn.execute(query)
+    except Exception as e:
+        print("Exception: ", e)
+        traceback.print_exc()
+        exit(1)
+
+    #print "reset isolation level"
+    conn.conn.set_isolation_level(old_isolation_level)
