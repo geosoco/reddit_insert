@@ -5,7 +5,7 @@
 
 drop table if exists s3_subreddit_monthly_retention;
 
-select subreddit, author, month_year, month_year + interval '1' month from s3_user_sub_activity_monthly_activity limit 10;
+--select subreddit, author, month_year, month_year + interval '1' month from s3_user_sub_activity_monthly_activity limit 10;
 
 
 with subs_creation as (

@@ -122,6 +122,18 @@ submissions_summarized as (
 	from sub_months sm
 	left join submission_links sl on sm.subreddit = sl.mentioned_sub_Name and sm.creation_delta_months = sl.creation_delta_months
 	group by sm.subreddit, sm.creation_delta_months
+),
+cross_posts as (
+	select
+		sm.subreddit,
+		sm.creation_delta_months,
+		coalesce(cps.num_authors, 0) as num_crosspost_authors,
+		coalesce(cps.non_deleted_authors, 0) as num_crosspost_nondeleted_authors,
+		coalesce(cps.num_subreddits, 0) as num_crosspost_subreddits,
+		coalesce(cps.total_cross_posts, 0) as num_crosspost_submissions
+	from sub_months sm
+	left join s2_cross_posts_30day_summary cps on cps.mentioned_sub_name = sm.subreddit and cps.creation_delta_months = sm.creation_delta_months
+	
 )
 select
 	sm.subreddit as mentioned_sub_name,
@@ -174,13 +186,19 @@ select
 	ss.total_title_links as total_submission_adv_title_links,
 	ss.total_title_mentions as total_submission_adv_title_mentions,
 	ss.total_selftext_links as total_submission_adv_selftext_links,
-	ss.total_selftext_mentions as total_submission_adv_selftext_mentions
+	ss.total_selftext_mentions as total_submission_adv_selftext_mentions,
+
+	cp.num_crosspost_authors,
+	cp.num_crosspost_nondeleted_authors,
+	cp.num_crosspost_subreddits,
+	cp.num_crosspost_submissions
 	
 
 into s2_subreddit_30day_inbound_advertising_data
 from sub_months sm 
 left join comment_ads ca on ca.mentioned_sub_name = sm.subreddit and ca.creation_delta_months = sm.creation_delta_months
-left join submissions_summarized ss on ss.subreddit = sm.subreddit and ss.creation_delta_months = sm.creation_delta_months;
+left join submissions_summarized ss on ss.subreddit = sm.subreddit and ss.creation_delta_months = sm.creation_delta_months
+left join cross_posts cp on cp.subreddit = sm.subreddit and cp.creation_delta_months = sm.creation_delta_months;
 
 
 

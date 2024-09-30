@@ -48,7 +48,8 @@ combined as (
 select
 * 
 into s3_cross_posts_intermediate
-from combined;
+from combined
+order by created_utc asc;
 
 
 grant select on s3_cross_posts_intermediate to public;
