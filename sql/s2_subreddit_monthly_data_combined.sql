@@ -224,11 +224,6 @@ first_month as (
 
 
 
-		cdminus1.s2_avg_activity as prev_avg_activity,
-		cdminus1.s2_avg_comments as prev_avg_comments,
-		cdminus1.s2_avg_submissions as prev_avg_submissions,
-		cdminus1.s2_avg_authors as prev_avg_authors,
-
 		cd0.total_activity as cd0_total_activity,
 		cd0.total_comments as cd0_total_comments,
 		cd0.unique_authors as cd0_unique_authors,
@@ -244,7 +239,17 @@ first_month as (
 
 		cd6.total_activity as cd6_total_activity,
 		cd6.total_comments as cd6_total_comments,
-		cd6.unique_authors as cd6_unique_authors,		
+		cd6.unique_authors as cd6_unique_authors,
+
+		cd12.total_activity as cd12_total_activity,
+		cd12.total_comments as cd12_total_comments,
+		cd12.unique_authors as cd12_unique_authors,
+
+
+		cdminus1.total_activity as prev_total_activity,
+		cdminus1.total_comments as prev_total_comments,
+		cdminus1.unique_authors as prev_unique_authors,
+
 
 	
 		cd0.s2_avg_activity as c0_avg_activity,
@@ -260,6 +265,11 @@ first_month as (
 		cd3.s2_avg_comments as c3_avg_comments,
 		cd3.s2_avg_authors as c3_avg_authors,
 
+
+		cdminus1.s2_avg_activity as prev_avg_activity,
+		cdminus1.s2_avg_comments as prev_avg_comments,
+		cdminus1.s2_avg_submissions as prev_avg_submissions,
+		cdminus1.s2_avg_authors as prev_avg_authors,
 
 
 	
@@ -293,29 +303,29 @@ first_month as (
 
 	
 		-- this is the average cumulative growth rate of this month over the previous used in Tsugawa & Niida
-		case when cd0.s2_cum_activity > 0 then ((coalesce(cd3.s2_cum_activity,0) - coalesce(cd0.s2_cum_activity,0))/3.0) / (cd0.s2_cum_activity::decimal / (s.creation_delta_months::decimal+1) ) else NULL end  as n3_total_activity_rate,
-		case when cd0.s2_cum_comments > 0 then ((coalesce(cd3.s2_cum_comments,0) - coalesce(cd0.s2_cum_comments,0))/3.0) / (cd0.s2_cum_comments::decimal / (s.creation_delta_months::decimal+1) ) else NULL end as n3_total_comments_growth_rate,
-		case when cd0.s2_cum_unique_authors > 0 then ((coalesce(cd3.s2_cum_unique_authors,0) - coalesce(cd0.s2_cum_unique_authors,0))/3.0) / (cd0.s2_cum_unique_authors::decimal / (s.creation_delta_months::decimal+1) ) else NULL end as n3_unique_authors_growth_rate,
+		--case when cd0.s2_cum_activity > 0 then ((coalesce(cd3.s2_cum_activity,0) - coalesce(cd0.s2_cum_activity,0))/3.0) / (cd0.s2_cum_activity::decimal / (s.creation_delta_months::decimal+1) ) else NULL end  as n3_total_activity_rate,
+		--case when cd0.s2_cum_comments > 0 then ((coalesce(cd3.s2_cum_comments,0) - coalesce(cd0.s2_cum_comments,0))/3.0) / (cd0.s2_cum_comments::decimal / (s.creation_delta_months::decimal+1) ) else NULL end as n3_total_comments_growth_rate,
+		--case when cd0.s2_cum_unique_authors > 0 then ((coalesce(cd3.s2_cum_unique_authors,0) - coalesce(cd0.s2_cum_unique_authors,0))/3.0) / (cd0.s2_cum_unique_authors::decimal / (s.creation_delta_months::decimal+1) ) else NULL end as n3_unique_authors_growth_rate,
 
-		case when cd0.total_activity > 0 then ((coalesce(cd3.total_activity,0) - coalesce(cd0.total_activity,0))/3.0) / (cd0.total_activity::decimal / (s.creation_delta_months::decimal+1) ) else NULL end  as n3_total_activity_rate_a,
-		case when cd0.total_comments > 0 then ((coalesce(cd3.total_comments,0) - coalesce(cd0.total_comments,0))/3.0) / (cd0.total_comments::decimal / (s.creation_delta_months::decimal+1) ) else NULL end as n3_total_comments_growth_rate_a,
-		case when cd0.unique_authors > 0 then ((coalesce(cd3.unique_authors,0) - coalesce(cd0.unique_authors,0))/3.0) / (cd0.unique_authors::decimal / (s.creation_delta_months::decimal+1) ) else NULL end as n3_unique_authors_growth_rate_a,
+		--case when cd0.total_activity > 0 then ((coalesce(cd3.total_activity,0) - coalesce(cd0.total_activity,0))/3.0) / (cd0.total_activity::decimal / (s.creation_delta_months::decimal+1) ) else NULL end  as n3_total_activity_rate_a,
+		--case when cd0.total_comments > 0 then ((coalesce(cd3.total_comments,0) - coalesce(cd0.total_comments,0))/3.0) / (cd0.total_comments::decimal / (s.creation_delta_months::decimal+1) ) else NULL end as n3_total_comments_growth_rate_a,
+		--case when cd0.unique_authors > 0 then ((coalesce(cd3.unique_authors,0) - coalesce(cd0.unique_authors,0))/3.0) / (cd0.unique_authors::decimal / (s.creation_delta_months::decimal+1) ) else NULL end as n3_unique_authors_growth_rate_a,
 
 		-- This is the % of new growth in the specific month with cumulative amounts (so smaller percentages except in spiky growth)
 		-- NOTE: I think dividing this by the predcited month rather than the prior month is probably a mistake
-		case when cd3.s2_cum_activity > 0 then ((coalesce(cd3.s2_cum_activity,0) - coalesce(cd2.s2_cum_activity,0))) / (cd3.s2_cum_activity::decimal)  else NULL end  as n3_total_activity_rate2,
-		case when cd3.s2_cum_comments > 0 then ((coalesce(cd3.s2_cum_comments,0) - coalesce(cd2.s2_cum_comments,0))) / (cd3.s2_cum_comments::decimal)  else NULL end as n3_total_comments_growth_rate2,
-		case when cd3.s2_cum_unique_authors > 0 then ((coalesce(cd3.s2_cum_unique_authors,0) - coalesce(cd2.s2_cum_unique_authors,0))) / (cd3.s2_cum_unique_authors::decimal)  else NULL end as n3_unique_authors_growth_rate2,
+		--case when cd3.s2_cum_activity > 0 then ((coalesce(cd3.s2_cum_activity,0) - coalesce(cd2.s2_cum_activity,0))) / (cd3.s2_cum_activity::decimal)  else NULL end  as n3_total_activity_rate2,
+		--case when cd3.s2_cum_comments > 0 then ((coalesce(cd3.s2_cum_comments,0) - coalesce(cd2.s2_cum_comments,0))) / (cd3.s2_cum_comments::decimal)  else NULL end as n3_total_comments_growth_rate2,
+		--case when cd3.s2_cum_unique_authors > 0 then ((coalesce(cd3.s2_cum_unique_authors,0) - coalesce(cd2.s2_cum_unique_authors,0))) / (cd3.s2_cum_unique_authors::decimal)  else NULL end as n3_unique_authors_growth_rate2,
 
 		-- This is the fraction of *new* activity over the previous month (also a percent without the multiplier of 100), should allow negative numbers
-		case when cd2.total_activity > 0 then (coalesce(cd3.total_activity,0) - coalesce(cd2.total_activity,0)::decimal) / (cd2.total_activity::decimal)  else NULL end  as n3_total_activity_rate3,
-		case when cd2.total_comments > 0 then (coalesce(cd3.total_comments,0) - coalesce(cd2.total_comments,0)) / (cd2.total_comments::decimal)  else NULL end as n3_total_comments_growth_rate3,
-		case when cd2.unique_authors > 0 then (coalesce(cd3.unique_authors,0) - coalesce(cd2.unique_authors,0)) / (cd2.unique_authors::decimal)  else NULL end as n3_unique_authors_growth_rate3,	
+		--case when cd2.total_activity > 0 then (coalesce(cd3.total_activity,0) - coalesce(cd2.total_activity,0)::decimal) / (cd2.total_activity::decimal)  else NULL end  as n3_total_activity_rate3,
+		--case when cd2.total_comments > 0 then (coalesce(cd3.total_comments,0) - coalesce(cd2.total_comments,0)) / (cd2.total_comments::decimal)  else NULL end as n3_total_comments_growth_rate3,
+		--case when cd2.unique_authors > 0 then (coalesce(cd3.unique_authors,0) - coalesce(cd2.unique_authors,0)) / (cd2.unique_authors::decimal)  else NULL end as n3_unique_authors_growth_rate3,	
 
 		-- simple fraction of activity over the previous month, decreases will be between 0 and 1
-		case when cd2.total_activity > 0 then (coalesce(cd3.total_activity,0)) / (cd2.total_activity::decimal) else NULL end  as n3_total_activity_rate4,
-		case when cd2.total_comments > 0 then (coalesce(cd3.total_comments,0)) / (cd2.total_comments::decimal) else NULL end  as n3_total_comments_growth_rate4,
-		case when cd2.unique_authors > 0 then (coalesce(cd3.unique_authors,0) ) / (cd2.unique_authors::decimal) else NULL end  as n3_unique_authors_growth_rate4,	
+		--case when cd2.total_activity > 0 then (coalesce(cd3.total_activity,0)) / (cd2.total_activity::decimal) else NULL end  as n3_total_activity_rate4,
+		--case when cd2.total_comments > 0 then (coalesce(cd3.total_comments,0)) / (cd2.total_comments::decimal) else NULL end  as n3_total_comments_growth_rate4,
+		--case when cd2.unique_authors > 0 then (coalesce(cd3.unique_authors,0) ) / (cd2.unique_authors::decimal) else NULL end  as n3_unique_authors_growth_rate4,	
 
 		-- This is the fraction of activity in the predicted month to the snapshot month
 		case when cd0.total_activity > 0 then (coalesce(cd3.total_activity,0)) / (cd0.total_activity::decimal) else NULL end  as n3_total_activity_rate5,
@@ -323,31 +333,31 @@ first_month as (
 		case when cd0.unique_authors > 0 then (coalesce(cd3.unique_authors,0)) / (cd0.unique_authors::decimal) else NULL end  as n3_unique_authors_growth_rate5,
 
 
-		case when cd0.total_activity > 0 then (coalesce(cd3.total_activity,0) - cd0.total_activity::decimal) / (cd0.total_activity::decimal) else NULL end  as n3_total_activity_rate6,
-		case when cd0.total_comments > 0 then (coalesce(cd3.total_comments,0) - cd0.total_comments::decimal) / (cd0.total_comments::decimal) else NULL end  as n3_total_comments_growth_rate6,
-		case when cd0.unique_authors > 0 then (coalesce(cd3.unique_authors,0) - cd0.unique_authors::decimal) / (cd0.unique_authors::decimal) else NULL end  as n3_unique_authors_growth_rate6,
+		--case when cd0.total_activity > 0 then (coalesce(cd3.total_activity,0) - cd0.total_activity::decimal) / (cd0.total_activity::decimal) else NULL end  as n3_total_activity_rate6,
+		--case when cd0.total_comments > 0 then (coalesce(cd3.total_comments,0) - cd0.total_comments::decimal) / (cd0.total_comments::decimal) else NULL end  as n3_total_comments_growth_rate6,
+		--case when cd0.unique_authors > 0 then (coalesce(cd3.unique_authors,0) - cd0.unique_authors::decimal) / (cd0.unique_authors::decimal) else NULL end  as n3_unique_authors_growth_rate6,
 
 
 		-- This is the average growth as used in Tsugawa & Niida
-		case when (cdminus1.s2_cum_activity - cdminus2.s2_cum_activity) > 0 then ((coalesce(cd0.s2_cum_activity,0) - coalesce(cdminus1.s2_cum_activity,0)) / (cdminus1.s2_cum_activity - cdminus2.s2_cum_activity)) else NULL end as prev_total_activity_growth,
-		case when (cdminus1.s2_cum_comments - cdminus2.s2_cum_comments) > 0 then ((coalesce(cd0.s2_cum_comments,0) - coalesce(cdminus1.s2_cum_comments,0)) / (cdminus1.s2_cum_comments - cdminus2.s2_cum_comments)) else NULL end as prev_total_comments_growth,
-		case when (cdminus1.s2_cum_unique_authors - cdminus2.s2_cum_unique_authors) > 0 then ((coalesce(cd0.s2_cum_unique_authors,0) - coalesce(cdminus1.s2_cum_unique_authors,0)) / (cdminus1.s2_cum_unique_authors - cdminus2.s2_cum_unique_authors)) else NULL end as prev_unique_authors_growth,
+		--case when (cdminus1.s2_cum_activity - cdminus2.s2_cum_activity) > 0 then ((coalesce(cd0.s2_cum_activity,0) - coalesce(cdminus1.s2_cum_activity,0)) / (cdminus1.s2_cum_activity - cdminus2.s2_cum_activity)) else NULL end as prev_total_activity_growth,
+		--case when (cdminus1.s2_cum_comments - cdminus2.s2_cum_comments) > 0 then ((coalesce(cd0.s2_cum_comments,0) - coalesce(cdminus1.s2_cum_comments,0)) / (cdminus1.s2_cum_comments - cdminus2.s2_cum_comments)) else NULL end as prev_total_comments_growth,
+		--case when (cdminus1.s2_cum_unique_authors - cdminus2.s2_cum_unique_authors) > 0 then ((coalesce(cd0.s2_cum_unique_authors,0) - coalesce(cdminus1.s2_cum_unique_authors,0)) / (cdminus1.s2_cum_unique_authors - cdminus2.s2_cum_unique_authors)) else NULL end as prev_unique_authors_growth,
 
 		-- fraction of new growth in the previous month (uses cumulative, so the fraction of new growth last month cumulatively)
 		-- this is likely biased because the overall cumulative should keep growing, though may work well for very spiky subreddits
-		case when cdminus1.s2_cum_activity > 0 then (coalesce(cdminus1.s2_cum_activity,0) - coalesce(cdminus2.s2_cum_activity,0)) / (cdminus1.s2_cum_activity) else NULL end as prev_total_activity_growth2,
-		case when cdminus1.s2_cum_comments > 0 then (coalesce(cdminus1.s2_cum_comments,0) - coalesce(cdminus2.s2_cum_comments,0)) / (cdminus1.s2_cum_comments) else NULL end as prev_total_comments_growth2,
-		case when cdminus1.s2_cum_unique_authors > 0 then (coalesce(cdminus1.s2_cum_unique_authors,0) - coalesce(cdminus2.s2_cum_unique_authors,0)) / (cdminus1.s2_cum_unique_authors) else NULL end as prev_unique_authors_growth2,
+		--case when cdminus1.s2_cum_activity > 0 then (coalesce(cdminus1.s2_cum_activity,0) - coalesce(cdminus2.s2_cum_activity,0)) / (cdminus1.s2_cum_activity) else NULL end as prev_total_activity_growth2,
+		--case when cdminus1.s2_cum_comments > 0 then (coalesce(cdminus1.s2_cum_comments,0) - coalesce(cdminus2.s2_cum_comments,0)) / (cdminus1.s2_cum_comments) else NULL end as prev_total_comments_growth2,
+		--case when cdminus1.s2_cum_unique_authors > 0 then (coalesce(cdminus1.s2_cum_unique_authors,0) - coalesce(cdminus2.s2_cum_unique_authors,0)) / (cdminus1.s2_cum_unique_authors) else NULL end as prev_unique_authors_growth2,
 
 		-- fraction of new growth in the previous month, can be negative
-		case when cdminus2.total_activity > 0 then (coalesce(cdminus1.total_activity,0) - coalesce(cdminus2.total_activity,0))::decimal / (cdminus2.total_activity) else NULL end as prev_total_activity_growth3,
-		case when cdminus2.total_comments > 0 then (coalesce(cdminus1.total_comments,0) - coalesce(cdminus2.total_comments,0))::decimal / (cdminus2.total_comments) else NULL end as prev_total_comments_growth3,
-		case when cdminus2.unique_authors > 0 then (coalesce(cdminus1.unique_authors,0) - coalesce(cdminus2.unique_authors,0))::decimal / (cdminus2.unique_authors) else NULL end as prev_unique_authors_growth3,
+		--case when cdminus2.total_activity > 0 then (coalesce(cdminus1.total_activity,0) - coalesce(cdminus2.total_activity,0))::decimal / (cdminus2.total_activity) else NULL end as prev_total_activity_growth3,
+		--case when cdminus2.total_comments > 0 then (coalesce(cdminus1.total_comments,0) - coalesce(cdminus2.total_comments,0))::decimal / (cdminus2.total_comments) else NULL end as prev_total_comments_growth3,
+		--case when cdminus2.unique_authors > 0 then (coalesce(cdminus1.unique_authors,0) - coalesce(cdminus2.unique_authors,0))::decimal / (cdminus2.unique_authors) else NULL end as prev_unique_authors_growth3,
 
 		-- fraction of previous month activity relative to the prior month
-		case when cdminus2.total_activity > 0 then coalesce(cdminus1.total_activity,0)::decimal / (cdminus2.total_activity) else NULL end as prev_total_activity_growth4,
-		case when cdminus2.total_comments > 0 then coalesce(cdminus1.total_comments,0)::decimal / (cdminus2.total_comments) else NULL end as prev_total_comments_growth4,
-		case when cdminus2.unique_authors > 0 then coalesce(cdminus1.unique_authors,0)::decimal / (cdminus2.unique_authors) else NULL end as prev_unique_authors_growth4,
+		--case when cdminus2.total_activity > 0 then coalesce(cdminus1.total_activity,0)::decimal / (cdminus2.total_activity) else NULL end as prev_total_activity_growth4,
+		--case when cdminus2.total_comments > 0 then coalesce(cdminus1.total_comments,0)::decimal / (cdminus2.total_comments) else NULL end as prev_total_comments_growth4,
+		--case when cdminus2.unique_authors > 0 then coalesce(cdminus1.unique_authors,0)::decimal / (cdminus2.unique_authors) else NULL end as prev_unique_authors_growth4,
 
 		-- fraction of growth this month relativeto the last month (less growth would be < 1)
 		case when cdminus1.total_activity > 0 then coalesce(cd0.total_activity,0)::decimal / (cdminus1.total_activity) else NULL end as total_activity_growth,
@@ -355,9 +365,9 @@ first_month as (
 		case when cdminus1.unique_authors > 0 then coalesce(cd0.unique_authors,0)::decimal / (cdminus1.unique_authors) else NULL end as unique_authors_growth,	
 
 
-		case when cdminus1.total_activity > 0 then (coalesce(cd0.total_activity,0)::decimal - cdminus1.total_activity) / (cdminus1.total_activity) else NULL end as total_activity_growth2,
-		case when cdminus1.total_comments > 0 then (coalesce(cd0.total_comments,0)::decimal - cdminus1.total_comments) / (cdminus1.total_comments) else NULL end as total_comments_growth2,
-		case when cdminus1.unique_authors > 0 then (coalesce(cd0.unique_authors,0)::decimal - cdminus1.unique_authors) / (cdminus1.unique_authors) else NULL end as unique_authors_growth2,			
+		--case when cdminus1.total_activity > 0 then (coalesce(cd0.total_activity,0)::decimal - cdminus1.total_activity) / (cdminus1.total_activity) else NULL end as total_activity_growth2,
+		--case when cdminus1.total_comments > 0 then (coalesce(cd0.total_comments,0)::decimal - cdminus1.total_comments) / (cdminus1.total_comments) else NULL end as total_comments_growth2,
+		--case when cdminus1.unique_authors > 0 then (coalesce(cd0.unique_authors,0)::decimal - cdminus1.unique_authors) / (cdminus1.unique_authors) else NULL end as unique_authors_growth2,			
 
 
 		(s6.total_activity is not null) as n6_present,
@@ -367,21 +377,21 @@ first_month as (
 		coalesce(s6.total_comments,0) as n6_total_comments,
 
 
-		case when cd0.s2_cum_activity > 0 then ((coalesce(cd6.s2_cum_activity,0) - coalesce(cd0.s2_cum_activity,0))/6.0) / (cd0.s2_cum_activity::decimal / (s.creation_delta_months::decimal +1) ) else NULL end  as n6_total_activity_rate,
-		case when cd0.s2_cum_comments > 0 then ((coalesce(cd6.s2_cum_comments,0) - coalesce(cd0.s2_cum_comments,0))/6.0) / (cd0.s2_cum_comments::decimal / (s.creation_delta_months::decimal +1) ) else NULL end  as n6_total_comments_growth_rate,
-		case when cd0.s2_cum_unique_authors > 0 then ((coalesce(cd6.s2_cum_unique_authors,0) - coalesce(cd0.s2_cum_unique_authors,0))/6.0) / (cd0.s2_cum_unique_authors::decimal / (s.creation_delta_months::decimal +1) ) else NULL end  as n6_unique_authors_growth_rate,
+		--case when cd0.s2_cum_activity > 0 then ((coalesce(cd6.s2_cum_activity,0) - coalesce(cd0.s2_cum_activity,0))/6.0) / (cd0.s2_cum_activity::decimal / (s.creation_delta_months::decimal +1) ) else NULL end  as n6_total_activity_rate,
+		--case when cd0.s2_cum_comments > 0 then ((coalesce(cd6.s2_cum_comments,0) - coalesce(cd0.s2_cum_comments,0))/6.0) / (cd0.s2_cum_comments::decimal / (s.creation_delta_months::decimal +1) ) else NULL end  as n6_total_comments_growth_rate,
+		--case when cd0.s2_cum_unique_authors > 0 then ((coalesce(cd6.s2_cum_unique_authors,0) - coalesce(cd0.s2_cum_unique_authors,0))/6.0) / (cd0.s2_cum_unique_authors::decimal / (s.creation_delta_months::decimal +1) ) else NULL end  as n6_unique_authors_growth_rate,
 
-		case when cd6.s2_cum_activity > 0 then ((coalesce(cd6.s2_cum_activity,0) - coalesce(cd5.s2_cum_activity,0))) / (cd6.s2_cum_activity::decimal) else NULL end  as n6_total_activity_rate2,
-		case when cd6.s2_cum_comments > 0 then ((coalesce(cd6.s2_cum_comments,0) - coalesce(cd5.s2_cum_comments,0))) / (cd6.s2_cum_comments::decimal) else NULL end  as n6_total_comments_growth_rate2,
-		case when cd6.s2_cum_unique_authors > 0 then ((coalesce(cd6.s2_cum_unique_authors,0) - coalesce(cd5.s2_cum_unique_authors,0))) / (cd6.s2_cum_unique_authors::decimal ) else NULL end  as n6_unique_authors_growth_rate2,
+		--case when cd6.s2_cum_activity > 0 then ((coalesce(cd6.s2_cum_activity,0) - coalesce(cd5.s2_cum_activity,0))) / (cd6.s2_cum_activity::decimal) else NULL end  as n6_total_activity_rate2,
+		--case when cd6.s2_cum_comments > 0 then ((coalesce(cd6.s2_cum_comments,0) - coalesce(cd5.s2_cum_comments,0))) / (cd6.s2_cum_comments::decimal) else NULL end  as n6_total_comments_growth_rate2,
+		--case when cd6.s2_cum_unique_authors > 0 then ((coalesce(cd6.s2_cum_unique_authors,0) - coalesce(cd5.s2_cum_unique_authors,0))) / (cd6.s2_cum_unique_authors::decimal ) else NULL end  as n6_unique_authors_growth_rate2,
 
-		case when cd5.total_activity > 0 then (coalesce(cd6.total_activity,0) - coalesce(cd5.total_activity,0)::decimal) / (cd5.total_activity::decimal)  else NULL end  as n6_total_activity_rate3,
-		case when cd5.total_comments > 0 then (coalesce(cd6.total_comments,0) - coalesce(cd5.total_comments,0)::decimal) / (cd5.total_comments::decimal)  else NULL end as n6_total_comments_growth_rate3,
-		case when cd5.unique_authors > 0 then (coalesce(cd6.unique_authors,0) - coalesce(cd5.unique_authors,0)::decimal) / (cd5.unique_authors::decimal)  else NULL end as n6_unique_authors_growth_rate3,	
+		--case when cd5.total_activity > 0 then (coalesce(cd6.total_activity,0) - coalesce(cd5.total_activity,0)::decimal) / (cd5.total_activity::decimal)  else NULL end  as n6_total_activity_rate3,
+		--case when cd5.total_comments > 0 then (coalesce(cd6.total_comments,0) - coalesce(cd5.total_comments,0)::decimal) / (cd5.total_comments::decimal)  else NULL end as n6_total_comments_growth_rate3,
+		--case when cd5.unique_authors > 0 then (coalesce(cd6.unique_authors,0) - coalesce(cd5.unique_authors,0)::decimal) / (cd5.unique_authors::decimal)  else NULL end as n6_unique_authors_growth_rate3,	
 
-		case when cd5.total_activity > 0 then (coalesce(cd6.total_activity,0)::decimal) / (cd5.total_activity::decimal) else NULL end  as n6_total_activity_rate4,
-		case when cd5.total_comments > 0 then (coalesce(cd6.total_comments,0)::decimal) / (cd5.total_comments::decimal) else NULL end  as n6_total_comments_growth_rate4,
-		case when cd5.unique_authors > 0 then (coalesce(cd6.unique_authors,0)::decimal ) / (cd5.unique_authors::decimal) else NULL end  as n6_unique_authors_growth_rate4,
+		--case when cd5.total_activity > 0 then (coalesce(cd6.total_activity,0)::decimal) / (cd5.total_activity::decimal) else NULL end  as n6_total_activity_rate4,
+		--case when cd5.total_comments > 0 then (coalesce(cd6.total_comments,0)::decimal) / (cd5.total_comments::decimal) else NULL end  as n6_total_comments_growth_rate4,
+		--case when cd5.unique_authors > 0 then (coalesce(cd6.unique_authors,0)::decimal ) / (cd5.unique_authors::decimal) else NULL end  as n6_unique_authors_growth_rate4,
 
 
 		case when cd0.total_activity > 0 then (coalesce(cd6.total_activity,0)::decimal) / (cd0.total_activity::decimal) else NULL end  as n6_total_activity_rate5,
@@ -389,9 +399,9 @@ first_month as (
 		case when cd0.unique_authors > 0 then (coalesce(cd6.unique_authors,0)::decimal ) / (cd0.unique_authors::decimal) else NULL end  as n6_unique_authors_growth_rate5,
 	
 
-		case when cd0.total_activity > 0 then (coalesce(cd6.total_activity,0)::decimal - cd0.total_activity::decimal) / (cd0.total_activity::decimal) else NULL end  as n6_total_activity_rate6,
-		case when cd0.total_comments > 0 then (coalesce(cd6.total_comments,0)::decimal - cd0.total_comments::decimal) / (cd0.total_comments::decimal) else NULL end  as n6_total_comments_growth_rate6,
-		case when cd0.unique_authors > 0 then (coalesce(cd6.unique_authors,0)::decimal - cd0.unique_authors::decimal) / (cd0.unique_authors::decimal) else NULL end  as n6_unique_authors_growth_rate6,
+		--case when cd0.total_activity > 0 then (coalesce(cd6.total_activity,0)::decimal - cd0.total_activity::decimal) / (cd0.total_activity::decimal) else NULL end  as n6_total_activity_rate6,
+		--case when cd0.total_comments > 0 then (coalesce(cd6.total_comments,0)::decimal - cd0.total_comments::decimal) / (cd0.total_comments::decimal) else NULL end  as n6_total_comments_growth_rate6,
+		--case when cd0.unique_authors > 0 then (coalesce(cd6.unique_authors,0)::decimal - cd0.unique_authors::decimal) / (cd0.unique_authors::decimal) else NULL end  as n6_unique_authors_growth_rate6,
 
 		--case when (cd5.s2_cum_activity-cd4.s2_cum_activity) > 0 then ((cd6.s2_cum_activity - cd5.s2_cum_activity) / (cd5.s2_cum_activity - cd4.s2_cum_activity)) else 0 end  as n6_prev_total_activity_growth,
 		--case when (cd5.s2_cum_comments-cd4.s2_cum_comments) > 0 then ((cd6.s2_cum_comments - cd5.s2_cum_comments) / (cd5.s2_cum_comments - cd4.s2_cum_comments)) else 0 end  as n6_prev_total_comments_growth,
@@ -471,9 +481,9 @@ first_month as (
 		coalesce(cd0.s2_cum_comments, 0) as cumsum_total_comments,
 
 
-		sg30.total_activity_gini,
-		sg30.total_comments_gini,
-		sg30.total_submissions_gini,
+		coalesce(sg30.total_activity_gini,0) as total_activity_gini,
+		coalesce(sg30.total_comments_gini,0) as total_comments_gini,
+		coalesce(sg30.total_submissions_gini,0) as total_submissions_gini,
 
 		l3a.last_3_months as active_users_2years,
 		l3a.total_unique_authors as total_unique_authors_2years,
@@ -488,7 +498,33 @@ first_month as (
 		coalesce(ssem.has_comments, 0) as num_submissions_with_comments,
 		case when coalesce(ssem.total_submissions,0) = 0 then 0 else coalesce(ssem.has_comments, 0)::decimal / ssem.total_submissions::decimal end as pct_submissions_with_comments,
 		case when coalesce(ssem.total_submissions, 0) = 0 then 0 else coalesce(ssem.num_pos_engaged, 0)::decimal / ssem.total_submissions::decimal end as pct_submissions_with_engagement,
-		case when coalesce(ssem.total_submissions, 0) = 0 then 0 else coalesce(ssem.num_pos_engaged_no_automod::decimal, 0) / ssem.total_submissions::decimal end as pct_submissions_with_engagement_no_automod
+		case when coalesce(ssem.total_submissions, 0) = 0 then 0 else coalesce(ssem.num_pos_engaged_no_automod::decimal, 0) / ssem.total_submissions::decimal end as pct_submissions_with_engagement_no_automod,
+
+
+	m12suc.total_activity as n12_total_activity,
+	m12suc.total_submissions as n12_total_submissions,
+	m12suc.total_comments as n12_total_comments,
+	m12suc.unique_authors as n12_unique_authors,
+
+
+	m12suc.avg_authors as n12_avg_authors,
+
+	m12suc.num_12m_active_months as n12_num_active_months,
+	m12suc.avg_comments as n12_avg_comments,
+	m12suc.cumsum_comments as n12_cumsum_comments,
+
+	m12suc.avg_submissions as n12_avg_submissions,
+	m12suc.cumsum_submissions as n12_cumsum_submissions,	
+
+	m12suc.avg_activity_gini as n12_avg_activity_gini,
+	m12suc.avg_comments_gini as n12_avg_comments_gini,
+
+	m12suc.avg_submissions_gini as n12_avg_submissions_gini,
+
+
+	m12suc.avg_retention_rate as n12_avg_retention_rate,
+
+	m12suc.num_m12_user_joins as n12_count_new_users
 		
 		
 
@@ -510,6 +546,7 @@ first_month as (
 	--left join cumulative_data cd4 on cd4.subreddit = fm.subreddit and cd4.creation_delta_months = s.creation_delta_months+4
 	left join cumulative_data cd5 on cd5.subreddit = ys.subreddit and cd5.creation_delta_months = s.creation_delta_months+5
 	left join cumulative_data cd6 on cd6.subreddit = ys.subreddit and cd6.creation_delta_months = s.creation_delta_months+6
+	left join cumulative_data cd12 on cd12.subreddit = ys.subreddit and cd12.creation_delta_months = s.creation_delta_months+12	
 	left join fostering_data fd on fd.subreddit = ys.subreddit and fd.creation_delta_months = s.creation_delta_months
 	left join seeding_content sd on sd.subreddit = ys.subreddit
 	left join creator_and_mod_subs cam on cam.subreddit = ys.subreddit
@@ -520,6 +557,7 @@ first_month as (
 	left join s2_last_3month_activity_2years l3a on l3a.subreddit = ys.subreddit
 	left join subreddit_30day_retention_fixed s30r on s30r.subreddit = ys.subreddit and s30r.creation_delta_months = s.creation_delta_months
 	left join s2_submissions_engagement_monthly ssem on ssem.subreddit = ys.subreddit and ssem.creation_delta_months = s.creation_delta_months
+	left join s2_m12_success_metrics m12suc on m12suc.subreddit = ys.subreddit and m12suc.creation_delta_months = s.creation_delta_months+12
 	
 	window w as (partition by fm.subreddit order by s.creation_delta_months asc);
 	;
@@ -528,3 +566,5 @@ first_month as (
 grant select on s2_subreddit_monthly_data_combined to public;
 
 
+create index on s2_subreddit_monthly_data_combined(subreddit);
+create index on s2_subreddit_monthly_data_combined(creation_delta_months);

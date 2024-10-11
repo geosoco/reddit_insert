@@ -7,6 +7,7 @@
 --
 
 
+
 drop table if exists s2_user_subreddit_activity_30day;
 
 with year_subs as (
