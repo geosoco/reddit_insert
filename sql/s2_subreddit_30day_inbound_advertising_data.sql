@@ -140,58 +140,58 @@ select
 	sm.creation_delta_months,
 
 
-	ca.num_authors as num_comment_adv_authors,
-	ca.non_deleted_authors as num_comment_adv_non_deleted_authors,
-	ca.num_subreddits as num_comment_adv_subreddits,
-	ca.total_links_or_mentions as total_comment_adv_links_or_mentions,
-	ca.total_comment_adv_comments as total_comment_adv_comments,
+	coalesce(ca.num_authors, 0) as num_comment_adv_authors,
+	coalesce(ca.non_deleted_authors, 0) as num_comment_adv_non_deleted_authors,
+	coalesce(ca.num_subreddits, 0) as num_comment_adv_subreddits,
+	coalesce(ca.total_links_or_mentions, 0) as total_comment_adv_links_or_mentions,
+	coalesce(ca.total_comment_adv_comments, 0) as total_comment_adv_comments,
 	
-	ca.link_comments as comment_adv_link_comments,
-	ca.mention_comments as comment_adv_mention_comments,
+	coalesce(ca.link_comments, 0) as comment_adv_link_comments,
+	coalesce(ca.mention_comments, 0) as comment_adv_mention_comments,
 		
-	ca.link_subreddits as comment_adv_link_subreddits,
-	ca.mention_subreddits as comment_adv_mention_subreddits,
+	coalesce(ca.link_subreddits, 0) as comment_adv_link_subreddits,
+	coalesce(ca.mention_subreddits, 0) as comment_adv_mention_subreddits,
 	
-	ca.link_authors as comment_adv_link_authors,
-	ca.mention_authors as comment_adv_mention_authors,
+	coalesce(ca.link_authors, 0) as comment_adv_link_authors,
+	coalesce(ca.mention_authors, 0) as comment_adv_mention_authors,
 	
-	ca.total_links as comment_adv_total_links,
-	ca.total_mentions as comment_adv_total_mentions,
+	coalesce(ca.total_links, 0) as comment_adv_total_links,
+	coalesce(ca.total_mentions, 0) as comment_adv_total_mentions,
 
 
 	
 
-	ss.total_subreddits as num_submission_adv_subreddits,
-	ss.total_authors as num_submission_adv_authors,
-	ss.total_submissions as total_submission_adv_submissions,
-	ss.non_deleted_authors as num_submission_adv_non_deleted_authors,
+	coalesce(ss.total_subreddits, 0) as num_submission_adv_subreddits,
+	coalesce(ss.total_authors, 0) as num_submission_adv_authors,
+	coalesce(ss.total_submissions, 0) as total_submission_adv_submissions,
+	coalesce(ss.non_deleted_authors, 0) as num_submission_adv_non_deleted_authors,
 		
-	ss.distinct_title_submissions as submission_adv_distinct_title_submissions,
-	ss.distinct_selftext_submissions as submission_adv_distinct_selftext_submissions,
+	coalesce(ss.distinct_title_submissions, 0) as submission_adv_distinct_title_submissions,
+	coalesce(ss.distinct_selftext_submissions, 0) as submission_adv_distinct_selftext_submissions,
 			
-	ss.distinct_title_subreddits as submission_adv_distinct_title_subreddits,
-	ss.distinct_selftext_subreddits as submission_adv_distinct_selftext_subreddits,
+	coalesce(ss.distinct_title_subreddits, 0) as submission_adv_distinct_title_subreddits,
+	coalesce(ss.distinct_selftext_subreddits, 0) as submission_adv_distinct_selftext_subreddits,
 		
-	ss.distinct_title_authors as submission_adv_distinct_title_authors,
-	ss.distinct_selftext_authors as submission_adv_distinct_selftext_authors,
+	coalesce(ss.distinct_title_authors, 0) as submission_adv_distinct_title_authors,
+	coalesce(ss.distinct_selftext_authors, 0) as submission_adv_distinct_selftext_authors,
 		
-	ss.total_title_link_submissions as total_submission_adv_title_link_submissions,
-	ss.total_title_mention_submissions as total_submission_adv_title_mention_submissions,
-	ss.total_selftext_link_submissions as total_submission_adv_selftext_link_submissions,
-	ss.total_selftext_mention_submissions as total_submission_adv_selftext_mention_submissions,	
+	coalesce(ss.total_title_link_submissions, 0) as total_submission_adv_title_link_submissions,
+	coalesce(ss.total_title_mention_submissions, 0) as total_submission_adv_title_mention_submissions,
+	coalesce(ss.total_selftext_link_submissions, 0) as total_submission_adv_selftext_link_submissions,
+	coalesce(ss.total_selftext_mention_submissions, 0) as total_submission_adv_selftext_mention_submissions,	
 			
-	ss.total_title_links_and_mentions as total_submission_adv_title_links_and_mentions,
-	ss.total_selftext_links_and_mentions as total_submission_adv_selftext_links_and_mentions,
+	coalesce(ss.total_title_links_and_mentions, 0) as total_submission_adv_title_links_and_mentions,
+	coalesce(ss.total_selftext_links_and_mentions, 0) as total_submission_adv_selftext_links_and_mentions,
 		
-	ss.total_title_links as total_submission_adv_title_links,
-	ss.total_title_mentions as total_submission_adv_title_mentions,
-	ss.total_selftext_links as total_submission_adv_selftext_links,
-	ss.total_selftext_mentions as total_submission_adv_selftext_mentions,
+	coalesce(ss.total_title_links, 0) as total_submission_adv_title_links,
+	coalesce(ss.total_title_mentions, 0) as total_submission_adv_title_mentions,
+	coalesce(ss.total_selftext_links, 0) as total_submission_adv_selftext_links,
+	coalesce(ss.total_selftext_mentions, 0) as total_submission_adv_selftext_mentions,
 
-	cp.num_crosspost_authors,
-	cp.num_crosspost_nondeleted_authors,
-	cp.num_crosspost_subreddits,
-	cp.num_crosspost_submissions
+	coalesce(cp.num_crosspost_authors, 0) as num_crosspost_authors,
+	coalesce(cp.num_crosspost_nondeleted_authors, 0) as num_crosspost_nondeleted_authors,
+	coalesce(cp.num_crosspost_subreddits, 0) as num_crosspost_subreddits,
+	coalesce(cp.num_crosspost_submissions, 0) as num_crosspost_submissions
 	
 
 into s2_subreddit_30day_inbound_advertising_data

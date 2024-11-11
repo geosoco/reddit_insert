@@ -15,21 +15,6 @@ drop table if exists s2_subreddit_gini_30days;
 
 
 with year_subs as (
-	select display_name, created_utc
-	from subreddits
-	where created_utc >= '2012-01-01' and created_utc < '2013-01-01' 
-)
-select
-	subreddit,
-	author,
-	ys.display_name as mentioned_sub_name,
-	(extract(epoch from (sld.created_utc - ys.created_utc))::bigint) / (3600*24*30)::int as creation_delta_months,
-	count(*) as total_links
-
-
-
-
-with year_subs as (
 	select 
 		display_name, 
 		created_utc,

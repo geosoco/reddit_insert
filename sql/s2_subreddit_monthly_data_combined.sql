@@ -419,6 +419,11 @@ first_month as (
 		coalesce(sum(fd.total_fostering_activity) over w,0) as fostering_cumsum_total_activity,
 		coalesce(sum(fd.total_fostering_submissions) over w,0) as fostering_cumsum_total_submissions,
 
+		sum(coalesce(fd.total_fostering_submissions,0)) over w as cumsum_fostering_submissions,
+		avg(coalesce(fd.total_fostering_submissions,0)) over w as avg_fostering_submissions,
+		sum(coalesce(fd.total_fostering_comments,0)) over w as cumsum_fostering_comments,
+		avg(coalesce(fd.total_fostering_comments,0)) over w as avg_fostering_comments,
+
 	
 		coalesce(fd.total_moderator_fostering_activity, 0) as total_moderator_fostering_activity,
 		coalesce(fd.total_moderator_fostering_submissions, 0) as total_moderator_fostering_submissions,
@@ -467,6 +472,16 @@ first_month as (
 		coalesce(iad.num_crosspost_nondeleted_authors, 0) as num_crosspost_nondeleted_authors,
 		coalesce(iad.num_crosspost_subreddits, 0) as num_crosspost_subreddits,
 		coalesce(iad.num_crosspost_submissions, 0) as num_crosspost_submissions,
+
+
+
+		sum(coalesce(fd.total_submission_adv_submissions,0)) over w as cumsum_adv_submissions,
+		avg(coalesce(fd.total_submission_adv_submissions,0)) over w as avg_adv_submissions,
+		sum(coalesce(fd.total_comment_adv_comments,0)) over w as cumsum_adv_comments,
+		avg(coalesce(fd.total_comment_adv_comments,0)) over w as avg_adv_comments,
+		sum(coalesce(fd.num_crosspost_submissions,0)) over w as cumsum_adv_crosspost_submissions,
+		avg(coalesce(fd.num_crosspost_submissions,0)) over w as avg_adv_crosspost_submissions,
+
 
 		case when s.creation_delta_months = 0 then 0 else coalesce(fm.first_month_total_activity, 0) end as first_month_total_activity,
 		case when s.creation_delta_months = 0 then 0 else coalesce(fm.first_month_total_submissions, 0) end as first_month_total_submissions,
