@@ -36,9 +36,21 @@ from periods p
 left join s2_sub_user_retention_intermediate suri on suri.subreddit = p.subreddit and suri.author = p.author and suri.creation_delta_months = p.creation_delta_months
 )
 select
-*
+*, 
+lag(total_activity) over w  as prev_total_activity,
+lead(total_activity) over w  as next_total_activity,
+
+lag(total_submissions) over w  as prev_total_submissions,
+lead(total_submissions) over w  as next_total_submissions,
+
+lag(total_comments) over w  as prev_total_comments,
+lead(total_comments) over w  as next_total_comments
+
+
 into s2_user_sub_retentive_activity_full
-from total_data;
+from total_data
+window w as (partition by subreddit, author order by creation_delta_months asc)
+;
 
 
 grant select on s2_user_sub_retentive_activity_full to public;

@@ -11,8 +11,6 @@
 
 drop table if exists  s2_sub_user_sequence_data2;
 
-
-
 with boundaries_table as (
 select 
 		*,
@@ -41,6 +39,7 @@ select
 	
 into s2_sub_user_sequence_data2
 from boundaries_table
+
 where seq_id is not null
 group by subreddit, author, seq_id
 order by subreddit, author, seq_id;

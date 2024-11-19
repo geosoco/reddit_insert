@@ -1,12 +1,12 @@
 --
--- s2_account_type_monthly_activity
+-- s2_subreddit_account_type_monthly_activity
 --
 --
 --
 --
 --
 
-drop table if exists s2_account_type_monthly_activity;
+drop table if exists s2_subreddit_account_type_monthly_activity;
 
 with mac_subs as (
 	select
@@ -57,6 +57,7 @@ combined_data as (
 ),
 aggregated_data as (
 	select
+		subreddit,
 		creation_delta_months,
 		account_type,
 		count(distinct author) as num_accounts,
@@ -65,12 +66,12 @@ aggregated_data as (
 		sum(num_submissions) as total_submissions,
 		sum(num_comments) as total_comments
 	from combined_data
-	group by creation_delta_months, account_type
+	group by subreddit, creation_delta_months, account_type
 )
 select
 	*
-into s2_account_type_monthly_activity
+into s2_subreddit_account_type_monthly_activity
 from aggregated_data;
 
 
-grant select on s2_account_type_monthly_activity to public;
+grant select on s2_subreddit_account_type_monthly_activity to public;

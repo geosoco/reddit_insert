@@ -86,10 +86,10 @@ fostering_data as (
 		sum(s.total_activity) as total_fostering_activity,
 		sum(s.total_submissions) as total_fostering_submissions,
 		sum(s.total_comments) as total_fostering_comments,
-		sum(susd.is_mod) as num_fostering_mods,
-		sum(case when susd.is_mod = 1 then s.total_activity else 0 end) as total_moderator_fostering_activity,
-		sum(case when susd.is_mod = 1 then s.total_submissions else 0 end) as total_moderator_fostering_submissions,
-		sum(case when susd.is_mod = 1 then s.total_comments else 0 end) as total_moderator_fostering_comments,
+		sum(case when m.moderator is not null then 1 else 0 end) as num_fostering_mods,
+		sum(case when m.moderator is not null then s.total_activity else 0 end) as total_moderator_fostering_activity,
+		sum(case when m.moderator is not null then s.total_submissions else 0 end) as total_moderator_fostering_submissions,
+		sum(case when m.moderator is not null then s.total_comments else 0 end) as total_moderator_fostering_comments,
 		sum(case when c.creator is not null then 1 else 0 end) as num_fostering_creators,
 		sum(case when c.creator is not null then s.total_activity else 0 end) as total_creator_fostering_activity,
 		sum(case when c.creator is not null then s.total_submissions else 0 end) as total_creator_fostering_submissions,
@@ -97,7 +97,8 @@ fostering_data as (
 		
 	from s2_sub_user_retention_intermediate s
 	left join s2_sub_user_sequence_data susd on s.subreddit = susd.subreddit and s.author = susd.author
-	left join creators c on c.subreddit = s.subreddit
+	left join creators c on c.subreddit = s.subreddit and c.creator = susd.author
+	left join mods m on m.subreddit = s.subreddit and m.moderator = susd.author
 	where susd.total_months >= 3 and susd.total_activity > (total_months * 10) 
 	and susd.first_delta_month <= s.creation_delta_months and susd.last_delta_month >= s.creation_delta_months
 	
@@ -475,12 +476,12 @@ first_month as (
 
 
 
-		sum(coalesce(fd.total_submission_adv_submissions,0)) over w as cumsum_adv_submissions,
-		avg(coalesce(fd.total_submission_adv_submissions,0)) over w as avg_adv_submissions,
-		sum(coalesce(fd.total_comment_adv_comments,0)) over w as cumsum_adv_comments,
-		avg(coalesce(fd.total_comment_adv_comments,0)) over w as avg_adv_comments,
-		sum(coalesce(fd.num_crosspost_submissions,0)) over w as cumsum_adv_crosspost_submissions,
-		avg(coalesce(fd.num_crosspost_submissions,0)) over w as avg_adv_crosspost_submissions,
+		sum(coalesce(iad.total_submission_adv_submissions,0)) over w as cumsum_adv_submissions,
+		avg(coalesce(iad.total_submission_adv_submissions,0)) over w as avg_adv_submissions,
+		sum(coalesce(iad.total_comment_adv_comments,0)) over w as cumsum_adv_comments,
+		avg(coalesce(iad.total_comment_adv_comments,0)) over w as avg_adv_comments,
+		sum(coalesce(iad.num_crosspost_submissions,0)) over w as cumsum_adv_crosspost_submissions,
+		avg(coalesce(iad.num_crosspost_submissions,0)) over w as avg_adv_crosspost_submissions,
 
 
 		case when s.creation_delta_months = 0 then 0 else coalesce(fm.first_month_total_activity, 0) end as first_month_total_activity,
