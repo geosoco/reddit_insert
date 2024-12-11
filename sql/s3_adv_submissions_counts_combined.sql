@@ -1,5 +1,5 @@
 --
--- s2_adv_submissions_counts_combined
+-- s3_adv_submissions_counts_combined
 --
 -- advertising counts by user and sub
 --
@@ -8,16 +8,13 @@
 
 
 
-drop table if exists s2_adv_submissions_counts_combined;
-
-
+drop table if exists s3_adv_submissions_counts_combined;
 
 with year_subs as (
-	select 
-		display_name as subreddit, 
-		created_utc
-	from subreddits
-	where created_utc >= '2012-01-01' and created_utc < '2013-01-01'
+	select ss.name as subreddit, s.created_utc
+	from subreddit_summary ss
+	left join subreddits s on s.display_name = ss.name
+	where total_activity >= 400 and unique_authors >= 10
 )
 ,
 crossposts as (
@@ -29,7 +26,7 @@ select
 	cpi.created_utc
 from year_subs ys
 inner join cross_posts_intermediate cpi on lower(cpi.source_subreddit) = lower(ys.subreddit)
-where lower(cpi.source_subreddit) != lower(cpi.subreddit)
+where source_subreddit is not null and lower(cpi.source_subreddit) != lower(cpi.subreddit)
 ),
 title_links as (
 	select 
@@ -103,14 +100,14 @@ select
 	coalesce(sl.num_title_links, 0) as num_title_links,
 	case when cp.id is not null then 1 else 0 end as num_cross_post
 
-into s2_adv_submissions_counts_combined
+into s3_adv_submissions_counts_combined
 from crossposts cp
 full join submission_selftext_and_title_links sl on sl.id = cp.id;
 
-create index on s2_adv_submissions_counts_combined(id);
-create index on s2_adv_submissions_counts_combined(mentioned_subreddit);
-create index on s2_adv_submissions_counts_combined(author);
+create index on s3_adv_submissions_counts_combined(id);
+create index on s3_adv_submissions_counts_combined(mentioned_subreddit);
+create index on s3_adv_submissions_counts_combined(author);
 
-grant select on s2_adv_submissions_counts_combined to public;
+grant select on s3_adv_submissions_counts_combined to public;
 
 	
