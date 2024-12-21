@@ -7,9 +7,11 @@
 -- political_sub_first_content is the first piece of content within that subreddit
 --
 -- WARNING: This query takes about 7-8 hours to complete because it's contains high activity
--- accounts like AutoModerator
+-- accounts like AutoModerator (if we ignore deleted and automod, this finishes in about 4.5 hours)
 --
 
+
+drop table if exists s3_user_activity_before_join_political_community;
 
 with year_subs as (
 	select 
@@ -29,6 +31,7 @@ with year_subs as (
 	
 	from year_subs ys 
 	left join user_subreddit_activity usa on usa.subreddit = ys.display_name
+	where usa.author not in ('[deleted]', 'AutoModerator')
 ), author_activity as (
 	select 
 		pa.*,
@@ -41,7 +44,7 @@ with year_subs as (
 		uca.deleted,
 		uca.removed,
 		extract(epoch from (pa.sub_first_activity_time - uca.created_utc)) as delta_activity_time,
-		row_number() over (partition by pa.author order by uca.created_utc desc) as content_number
+		row_number() over (partition by pa.sub_first_activity_time, pa.author order by uca.created_utc desc) as content_number
 	from political_authors pa
 	left join user_combined_activity uca on uca.author = pa.author
 	where uca.created_utc <= pa.sub_first_activity_time

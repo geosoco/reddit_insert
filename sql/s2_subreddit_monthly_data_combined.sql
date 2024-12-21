@@ -96,10 +96,10 @@ fostering_data as (
 		sum(case when c.creator is not null then s.total_comments else 0 end) as total_creator_fostering_comments
 		
 	from s2_sub_user_retention_intermediate s
-	left join s2_sub_user_sequence_data susd on s.subreddit = susd.subreddit and s.author = susd.author
+	left join s2_sub_user_sequence_data2 susd on s.subreddit = susd.subreddit and s.author = susd.author
 	left join creators c on c.subreddit = s.subreddit and c.creator = susd.author
 	left join mods m on m.subreddit = s.subreddit and m.moderator = susd.author
-	where susd.total_months >= 3 and susd.total_activity > (total_months * 10) 
+	where susd.total_months >= 3 
 	and susd.first_delta_month <= s.creation_delta_months and susd.last_delta_month >= s.creation_delta_months
 	
 	group by s.subreddit, s.creation_delta_months
