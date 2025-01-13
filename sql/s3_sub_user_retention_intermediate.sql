@@ -33,10 +33,16 @@ lead_data as (
 		author,
 		usa.subreddit, 
 		creation_delta_months,
-		lead(creation_delta_months) over (partition by usa.subreddit, author order by creation_delta_months asc) as next_active_month,
-		lag(creation_delta_months) over (partition by usa.subreddit, author order by creation_delta_months asc) as prev_active_month,
-		case when lead(creation_delta_months) over (partition by usa.subreddit, author order by creation_delta_months asc) = creation_delta_months+1 then 1 else 0 end as active_next_month,
-		case when lag(creation_delta_months) over (partition by usa.subreddit, author order by creation_delta_months asc) = creation_delta_months-1 then 1 else 0 end as active_prev_month,
+		lead(creation_delta_months) over w as next_active_month,
+		lag(creation_delta_months) over w as prev_active_month,
+		case when lead(creation_delta_months) over w = creation_delta_months+1 then 1 else 0 end as active_next_month,
+		case when lag(creation_delta_months) over w = creation_delta_months-1 then 1 else 0 end as active_prev_month,
+		case when lead(creation_delta_months) over w = creation_delta_months+1 then lead(total_activity) over w else 0 end as next_month_activity,
+		case when lag(creation_delta_months) over w = creation_delta_months-1 then lag(total_activity) over w else 0 end as prev_month_activity,
+		case when lead(creation_delta_months) over w = creation_delta_months+1 then lead(total_submissions) over w else 0 end as next_month_submissions,
+		case when lag(creation_delta_months) over w = creation_delta_months-1 then lag(total_submissions) over w else 0 end as prev_month_submissions,
+		case when lead(creation_delta_months) over w = creation_delta_months+1 then lead(total_comments) over w else 0 end as next_month_comments,
+		case when lag(creation_delta_months) over w = creation_delta_months-1 then lag(total_comments) over w else 0 end as prev_month_comments,		
 		case when sm2.moderator is not null then 1 else 0 end as  is_mod,
 		case when c.creator is not null then 1 else 0 end as is_creator,
 		total_activity,
@@ -46,6 +52,7 @@ lead_data as (
 	left join user_sub_activity_30day_activity usa on usa.subreddit = ys.display_name
 	left join sub_moderators sm2 on sm2.subreddit = ys.display_name and sm2.moderator = usa.author
 	left join creators c on ys.display_name = c.subreddit and c.creator = usa.author
+	window w as (partition by usa.subreddit, author order by creation_delta_months asc)
 )
 select * 
 into s3_sub_user_retention_intermediate	

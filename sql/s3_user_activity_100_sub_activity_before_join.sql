@@ -22,7 +22,7 @@ select
 	
 into s3_user_activity_100_sub_activity_before_join
 from s3_user_activity_before_join_political_community
-where content_number < 101 and content_number > 1
+where content_number < 102 and content_number > 1
 group by 	political_sub_first_content, author, subreddit;
 
 

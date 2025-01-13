@@ -26,4 +26,4 @@ group by uca.subreddit, uca.author, ((extract(epoch from (uca.created_utc - s.cr
 grant select on user_sub_activity_30day_activity to public;
 create index on user_sub_activity_30day_activity(subreddit);
 create index on user_sub_activity_30day_activity(author);
-
+create index on user_sub_activity_30day_activity(total_activity);

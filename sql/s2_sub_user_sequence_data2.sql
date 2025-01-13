@@ -14,17 +14,17 @@ drop table if exists  s2_sub_user_sequence_data2;
 with boundaries_table as (
 select 
 		*,
-		case when total_activity < 10 then NULL else
+		case when total_activity < 5 then NULL else
 		0 + sum(seq_start) over (partition by subreddit, author order by creation_delta_months)  end as seq_id
 	
 	from 
 	(select
 		*, 
-		case when (prev_total_activity < 10 or prev_total_activity is null) and total_activity >= 10 then 1 else NULL end as seq_start,
-		case when total_activity >= 10 and (next_total_activity < 10 or next_total_activity is null) then 1 else NULL end as seq_end
+		case when (prev_total_activity < 5 or prev_total_activity is null) and total_activity >= 5 then 1 else NULL end as seq_start,
+		case when total_activity >= 5 and (next_total_activity < 5 or next_total_activity is null) then 1 else NULL end as seq_end
 	
 		from s2_user_sub_retentive_activity_full
-		where author != '[deleted]'
+		where author != '[deleted]' and total_activity >= 5
 	) a
 )
 

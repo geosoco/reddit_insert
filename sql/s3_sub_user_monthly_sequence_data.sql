@@ -12,38 +12,43 @@ sub_user_monthly_retention_intermediate as (
 		author,
 		subreddit, 
 		month_year,
-		lead(month_year) over (partition by subreddit, author order by month_year asc) as next_active_month,
-		case when lead(month_year) over (partition by subreddit, author order by month_year asc) = month_year + interval '1' month then 1 else 0 end as active_next_month,
-		case when lag(month_year) over (partition by subreddit, author order by month_year asc) = month_year - interval '1' month then 1 else 0 end as active_prev_month,
+		lead(month_year) over w as next_active_month,
+		case when lead(month_year) over w = month_year + interval '1' month then 1 else 0 end as active_next_month,
+		case when lag(month_year) over w = month_year - interval '1' month then 1 else 0 end as active_prev_month,
+		case when lead(month_year) over (partition by subreddit, author order by month_year asc) = month_year+interval '1' month then lead(total_activity) over w else 0 end as next_month_activity,
+		case when lag(month_year) over (partition by subreddit, author order by month_year asc) = month_year-interval '1' month then lag(total_activity) over w else 0 end as prev_month_activity,
 		total_activity,
 		total_submissions,
 		total_comments
 	from s3_user_sub_activity_monthly_activity
-	where author != '[deleted]'		
+	where author != '[deleted]'	 and total_activity >= 5
+	window w as (partition by subreddit, author order by month_year asc)
 ),
+
+
 seq_data as (
 	select
 		*, 
-		case when active_prev_month = 0 and active_next_month = 1 then 1 else NULL end as seq_start,
-		case when active_prev_month = 1 and active_next_month = 0 then 1 else NULL end as seq_end
+		case when prev_month_activity < 5 and total_activity >= 5 then 1 else NULL end as seq_start,
+		case when total_activity >= 5 and next_month_activity < 5 then 1 else NULL end as seq_end
 	
 		from sub_user_monthly_retention_intermediate
-		where author != '[deleted]'
+		where author != '[deleted]' 
 ),
 boundaries_table as (
 	select 
 		*,
 
-		case when active_prev_month = 0 and active_next_month = 0 then null else
-		0 + sum(case when active_prev_month = 0 and active_next_month = 1 then 1 else 0 end) over (partition by subreddit, author order by month_year) 
+		case when total_activity < 5 then null else
+		0 + sum(seq_start) over (partition by subreddit, author order by month_year) 
 		end	as seq_id
 	
 	from seq_data
 )
 select
 	subreddit, author, seq_id, 
-	min(case when seq_start = 1 then month_year else NULL end) as first_delta_month,
-	max(case when seq_end = 1 then month_year else NULL end) as last_delta_month,
+	min(case when seq_start = 1 then month_year else NULL end) as first_month,
+	max(case when seq_end = 1 then month_year else NULL end) as last_month,
 	count(*) as total_months,
 	sum(total_activity) as total_activity,
 	sum(total_submissions) as total_submissions,
@@ -63,6 +68,6 @@ grant select on s3_sub_user_monthly_sequence_data to public;
 
 create index on s3_sub_user_monthly_sequence_data (subreddit);
 create index on s3_sub_user_monthly_sequence_data (author);
-create index on s3_sub_user_monthly_sequence_data using btree (total_months);
-create index on s3_sub_user_monthly_sequence_data using btree (total_submissions);
-create index on s3_sub_user_monthly_sequence_data using btree (total_activity);
+create index on s3_sub_user_monthly_sequence_data (total_months);
+create index on s3_sub_user_monthly_sequence_data (total_submissions);
+create index on s3_sub_user_monthly_sequence_data (total_activity);

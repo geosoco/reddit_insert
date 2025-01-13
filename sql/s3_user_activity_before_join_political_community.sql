@@ -16,8 +16,7 @@ drop table if exists s3_user_activity_before_join_political_community;
 with year_subs as (
 	select 
 		display_name,
-		created_utc, 
-		extract(year from age('2017-01-01'::timestamp, created_utc)) * 12 + extract(month from age('2017-01-01'::timestamp, created_utc)) as max_cal_months
+		created_utc
 	
 	from subreddits
 	where display_name in ('The_Donald', 'hillaryclinton', 'SandersForPresident')
