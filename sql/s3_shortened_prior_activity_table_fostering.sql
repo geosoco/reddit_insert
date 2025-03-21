@@ -11,27 +11,32 @@
 
 drop table if exists s3_shortened_prior_activity_table_fostering;
 
-with eligible_authors as (
-	select
-		distinct subreddit, author
-	from s3_sub_user_monthly_sequence_data
-	where total_months >= 3
-	and author not in ('[deleted]', 'AutoModerator')
+with 
+fostering_authors as (
+	select 
+		distinct subreddit,
+		author,
+		case when first_fostering_month is not null then 'foster'
+		when num_days >= 1 then 'multiday'
+		else 'day' end as duration			
 
+	from s3_user_joins_with_fostering uj
 ),
 join_subs as (
 
 	select
 		political_sub_first_content, 
-		ea.author,
+		author,
 		c_id,
 		s_id,
 		date_trunc('day', sub_first_activity_time) as join_date,
+		(extract(epoch from (sub_first_activity_time - created_utc))::bigint) / (3600*24)::int as days_before_join,
 		uabpc.subreddit
-	from eligible_authors ea
-	left join s3_user_activity_before_join_political_community uabpc on uabpc.political_sub_first_content = ea.subreddit and uabpc.author = ea.author
-	where content_number > 1 and content_number <= 11
-
+	from 
+	fostering_authors fa
+	left join s3_user_activity_before_join_political_community uabpc on fa.author = uabpc.author and fa.subreddit = uabpc
+	where content_number > 1 and ( 
+	((extract(epoch from (sub_first_activity_time - created_utc))::bigint) / (3600*24)::int) < 30 and content_number <= 1001)
 ),
 unique_subs as (
 	select
