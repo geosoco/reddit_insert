@@ -2,7 +2,10 @@
 --
 -- s3_inbound_mentions_combined_flat
 --
+-- STOPL Try the s3_inbound_adv_content_combined instead, it includes crossposts
 --
+--
+
 
 drop table if exists s3_inbound_mentions_combined_flat;
 

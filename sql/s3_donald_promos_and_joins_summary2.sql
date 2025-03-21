@@ -4,8 +4,11 @@
 --
 --
 --
--- Takes about 40-45 minutes to run
+-- When looking at 3 days this takes about 40-45 minutes to run
+-- For the current 7 day window, it's 3ish hours
 --
+
+
 
 
 
@@ -18,18 +21,15 @@ case when first_fostering_month is not null then 3
 when num_days >= 1 then 2
 else 1 end as duration
 
-from s3_donald_user_joins_with_fostering
+from s3_user_joins_with_fostering
+where subreddit = 'The_Donald'
 ),
 
 promos as (
 select
 	id, 
 	subreddit,
-	created_utc,
-	case when num_crossposts > 0 then 3
-	when num_links > 0 then 2
-	when num_mentions > 0 then 1 
-	else 0 end as promo_type
+	created_utc
 	
 	
 from s3_inbound_adv_content_combined imcf
@@ -42,12 +42,12 @@ promos_and_joins as (
 	 cast(extract(epoch from p.created_utc - jd.first_activity_time)/3600 as int) as num_hours
 	from promos p, 
 	join_days jd
-	where p.created_utc < '2016-09-01' and jd.first_activity_time <= (('2016-09-01')::date + interval '192' hour)
-	and jd.first_activity_time >=  (p.created_utc - interval '192' hour)  and  jd.first_activity_time < (p.created_utc + interval '192' hour)
+	where p.created_utc < '2016-09-01' and jd.first_activity_time <= (('2016-09-01')::date + interval '7' day)
+	and jd.first_activity_time >=  (p.created_utc - interval '7' day)  and  jd.first_activity_time < (p.created_utc + interval '7' day)
 ),
 summaries as (
 
-	select id, num_hours, 
+	select id,  num_hours, 
 		count(*) as total_promos,
 		count(*) filter (where duration = 1) as total_day_joins,
 		count(*) filter (where duration = 2) as total_multiday_joins,

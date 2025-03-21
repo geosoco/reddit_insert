@@ -5,7 +5,7 @@
 --
 --
 -- When looking at 3 days this takes about 40-45 minutes to run
--- For the current 7 day window, it's 3ish hours
+-- For the current 7 day window, it's 2-3ish hours
 --
 
 

@@ -77,7 +77,7 @@ submissions_summarized as (
 		
 		
 	from subreddit_list s
-	left join s3_adv_submissions_counts_combined ascc on ascc.mentioned_subreddit = s.name
+	left join s2_adv_submissions_counts_combined ascc on ascc.mentioned_subreddit = s.name
 	group by s.name
 )
 select
