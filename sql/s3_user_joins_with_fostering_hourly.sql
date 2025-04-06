@@ -2,7 +2,7 @@
 --
 -- s3_user_joins_with_fostering_hourly
 --
---
+-- NOTE: This doesn't seem to be used
 --
 
 

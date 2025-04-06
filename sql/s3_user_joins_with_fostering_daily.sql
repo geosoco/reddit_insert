@@ -17,7 +17,7 @@ author_joins as (
 		when num_days >= 1 then 'multiday'
 		else 'day' end as duration,
 		*
-	from s3_user_joins_with_fostering
+	from s3_user_joins_with_fostering_monthly
 )
 select
 	subreddit,

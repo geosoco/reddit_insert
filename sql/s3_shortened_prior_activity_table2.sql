@@ -5,7 +5,7 @@
 --
 -- Find author history of the most active authors
 -- 
---
+-- THIS SHOULD NOT BE USED ANYMORE. USE THE fostering version
 --
 
 
@@ -19,8 +19,7 @@ with eligible_authors as (
 		date_part('day', last_activity_time - first_activity_time) as days,
 		last_activity_time - first_activity_time as days2
 	from user_subreddit_activity
-	where author not in ('[deleted]', 'AutoModerator') and total_activity > 100 and date_part('day', last_activity_time - first_activity_time) >= 30
-
+	where author not in ('[deleted]', 'AutoModerator') and subreddit in ('The_Donald', 'hillaryclinton', 'SandersForPresident')
 ),
 join_subs as (
 

@@ -24,8 +24,7 @@ where subreddit in ('The_Donald', 'hillaryclinton', 'SandersForPresident')
 )
 ,
 fostering_authors as (
--- NOTE: This is pulling from the creation-relative sequence table, 
--- so fostering data can exist through early november in 2016 in some specific cases	
+
 	select 
 		subreddit,
 		author,
