@@ -1,5 +1,5 @@
 -e git+git@github.com:emCOMP/ezconf@4fab5d1447b60e1ba6a4be0b3570e92b27bef1aa#egg=ezconf
-numpy==1.17.3
+numpy==1.22.0
 pandas==0.25.3
 pgcopy==1.4.0
 psycopg2==2.8.4
